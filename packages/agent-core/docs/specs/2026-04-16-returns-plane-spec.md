@@ -94,15 +94,16 @@ interface ReturnEntry {
 
 **Direct caller bypass**：`/returns/*` 是 CRUD + 订阅端点，**不经过 agent loop**，同 `/memory` 一样走直调。不在 Context Assembly Contract 的 Path Row 中登记（那份契约只管进 agent 的入口）。
 
-## 与 twitter-digest 的关系（本 PR 不做，列出去向）
+## 与 twitter-digest 的关系
 
-当前 `POST /twitter/digest` 只回 HTTP response。**follow-up**（不在本 PR 范围）：
+**已接入**（见 `docs/changes/2026-04-16-twitter-digest-returns-plane-impl-notes.md`）：
 
-- `twitter-digest` 请求体增加 `persist?: boolean`，为 true 时 dispatch 到 Returns Plane
+- `POST /twitter/digest` 请求体增加 `persist?: boolean`，为 true 时 dispatch 到 Returns Plane
 - `daily` / `weekly` 两个 mode 默认 `persist: true`（属于"日 / 周"级产出）
 - `summarize` mode 默认 `persist: false`（是中间产物）
+- 成功 dispatch 时 response body 额外带 `returnId` 字段，caller 可以用它去 `GET /returns/:id` 或订阅 `/returns/stream`
 
-本 PR 只搭好 Returns Plane 基础设施；migration 放到单独 PR，避免一次改动涉及 2 个模块。
+Draft 构造逻辑在 `twitter-digest.ts::buildDigestReturnDraft` 里（kind = `twitter-digest.daily` / `twitter-digest.weekly`）。
 
 ## 测试
 

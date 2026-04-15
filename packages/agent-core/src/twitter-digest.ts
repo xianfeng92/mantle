@@ -17,6 +17,7 @@ import { z } from "zod";
 
 import type { AgentCoreSettings } from "./settings.js";
 import { createLogger } from "./logger.js";
+import type { ReturnDraft } from "./returns.js";
 
 const log = createLogger("twitter-digest");
 
@@ -307,6 +308,63 @@ function buildModel(settings: AgentCoreSettings): ChatOpenAI {
     // 给 4096 token 余量：~13 条 × 300 token output ≈ 3900 + 容错。
     maxTokens: 4096,
   });
+}
+
+/**
+ * Build a Returns Plane draft from a digest result. Returns null for modes
+ * that should not be persisted by default (currently only `summarize`, which
+ * is an intermediate product — the daily/weekly steps consume it).
+ */
+export function buildDigestReturnDraft(
+  request: TwitterDigestRequest,
+  result: unknown,
+): ReturnDraft | null {
+  const createdAt = new Date().toISOString();
+  const dateTag = createdAt.slice(0, 10);
+
+  if (request.mode === "daily") {
+    const parsed = DailyResponseSchema.safeParse(result);
+    if (!parsed.success) return null;
+    return {
+      kind: "twitter-digest.daily",
+      title: `今日精选 ${parsed.data.topPicks.length} 条`,
+      summary: parsed.data.rationale,
+      payload: {
+        mode: "daily",
+        input: request.bookmarks,
+        output: parsed.data,
+      },
+      tags: ["twitter-digest", "daily", dateTag],
+      source: { taskId: "twitter-digest.daily" },
+    };
+  }
+
+  if (request.mode === "weekly") {
+    const parsed = WeeklyResponseSchema.safeParse(result);
+    if (!parsed.success) return null;
+    const summary = parsed.data.clusters
+      .map((c) => `${c.theme} (${c.bookmarkIds.length})`)
+      .join(" · ");
+    return {
+      kind: "twitter-digest.weekly",
+      title: `本周聚类 ${parsed.data.clusters.length} 簇`,
+      summary,
+      payload: {
+        mode: "weekly",
+        input: request.bookmarks,
+        output: parsed.data,
+      },
+      tags: ["twitter-digest", "weekly", dateTag],
+      source: { taskId: "twitter-digest.weekly" },
+    };
+  }
+
+  return null;
+}
+
+/** Default persistence policy by mode. `summarize` is intermediate and skipped. */
+export function defaultPersistForMode(mode: TwitterDigestRequest["mode"]): boolean {
+  return mode === "daily" || mode === "weekly";
 }
 
 export async function generateDigest(

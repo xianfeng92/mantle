@@ -29,6 +29,8 @@ import type { HITLResponse, ContentBlock, UserInput } from "./types.js";
 import { validateUserInput } from "./types.js";
 import {
   TwitterDigestRequestSchema,
+  buildDigestReturnDraft,
+  defaultPersistForMode,
   generateDigest,
 } from "./twitter-digest.js";
 
@@ -945,7 +947,7 @@ export class AgentCoreHttpServer {
       }
 
       if (method === "POST" && pathname === "/twitter/digest") {
-        const body = await readJsonBody(request);
+        const body = (await readJsonBody(request)) as { persist?: unknown };
         const parseResult = TwitterDigestRequestSchema.safeParse(body);
         if (!parseResult.success) {
           sendJson(
@@ -960,25 +962,45 @@ export class AgentCoreHttpServer {
           return;
         }
 
+        const mode = parseResult.data.mode;
+        const persist =
+          typeof body.persist === "boolean"
+            ? body.persist
+            : defaultPersistForMode(mode);
         const digestStart = Date.now();
         log.info("twitter.digest.start", {
-          mode: parseResult.data.mode,
+          mode,
           count: parseResult.data.bookmarks.length,
+          persist,
         });
         try {
           const result = await generateDigest(
             parseResult.data,
             this.runtime.settings,
           );
+          let returnId: string | undefined;
+          if (persist) {
+            const draft = buildDigestReturnDraft(parseResult.data, result);
+            if (draft) {
+              const entry = await this.runtime.returnDispatcher.dispatch(draft);
+              returnId = entry.id;
+            }
+          }
           log.info("twitter.digest.done", {
-            mode: parseResult.data.mode,
+            mode,
             durationMs: Date.now() - digestStart,
+            returnId,
           });
-          sendJson(response, 200, result, this.corsOrigin);
+          sendJson(
+            response,
+            200,
+            returnId ? { ...(result as object), returnId } : result,
+            this.corsOrigin,
+          );
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           log.error("twitter.digest.error", {
-            mode: parseResult.data.mode,
+            mode,
             durationMs: Date.now() - digestStart,
             error: message,
           });
