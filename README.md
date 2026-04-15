@@ -58,12 +58,13 @@ open Mantle.xcodeproj
 
 ## Open Source Status
 
-当前仓库已经完成 monorepo 收敛，可作为统一开源仓库继续演进。许可证与对外发布素材仍建议在正式公开前补齐：
+当前仓库已经完成 monorepo 收敛，并已补齐基础开源文件：
 
-- `LICENSE`
+- `LICENSE` (`Apache-2.0`)
 - `CONTRIBUTING.md`
 - `SECURITY.md`
-- 截图 / GIF / 架构图
+
+正式公开前仍建议继续补充截图、GIF 和架构图。
 
 ## Notes
 
