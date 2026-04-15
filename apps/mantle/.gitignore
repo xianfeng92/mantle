@@ -1,0 +1,14 @@
+.build/
+.swiftpm/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+.DS_Store
+
+# Local runtime artifacts
+.superpowers/
+scripts/piper-env/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Local AI workspace files
+.claude/

@@ -1,0 +1,47 @@
+name: Mantle
+options:
+  bundleIdPrefix: com.xforg
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "26.4"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGNING_ALLOWED: false
+targets:
+  Mantle:
+    type: application
+    platform: macOS
+    sources:
+      - path: Mantle
+        excludes:
+          - ".build"
+    info:
+      path: Mantle/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.xforg.Mantle
+        PRODUCT_NAME: Mantle
+        SWIFT_STRICT_CONCURRENCY: complete
+        GENERATE_INFOPLIST_FILE: false
+        INFOPLIST_FILE: Mantle/Info.plist
+        CODE_SIGNING_ALLOWED: false
+        CODE_SIGN_IDENTITY: "-"
+    dependencies:
+      - package: swift-markdown
+        product: Markdown
+  MantleTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: MantleTests
+    settings:
+      base:
+        CODE_SIGNING_ALLOWED: false
+    dependencies:
+      - target: Mantle
+packages:
+  swift-markdown:
+    url: https://github.com/apple/swift-markdown.git
+    from: "0.5.0"

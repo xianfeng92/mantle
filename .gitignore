@@ -1,0 +1,24 @@
+.DS_Store
+
+# Root-local artifacts
+.claude/
+
+# Mantle local artifacts
+apps/mantle/.superpowers/
+apps/mantle/.swiftpm/
+apps/mantle/DerivedData/
+apps/mantle/scripts/piper-env/
+apps/mantle/*.xcodeproj/xcuserdata/
+apps/mantle/*.xcworkspace/xcuserdata/
+apps/mantle/*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# agent-core local artifacts
+packages/agent-core/.agent-core/
+packages/agent-core/.claude/
+packages/agent-core/.env
+packages/agent-core/node_modules/
+packages/agent-core/dist/
+packages/agent-core/Downloads/
+packages/agent-core/large_tool_results/
+packages/agent-core/tests/reports/
+packages/agent-core/web/node_modules/
