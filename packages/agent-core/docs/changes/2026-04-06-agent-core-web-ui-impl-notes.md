@@ -50,9 +50,9 @@
 
 已执行：
 
-- `cd /Users/xforg/AI_SPACE/agent-core/web && npm run lint`
-- `cd /Users/xforg/AI_SPACE/agent-core/web && npm run build`
-- `cd /Users/xforg/AI_SPACE/agent-core/web && npm run dev -- --host 127.0.0.1 --port 4173`
+- `cd /Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/web && npm run lint`
+- `cd /Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/web && npm run build`
+- `cd /Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/web && npm run dev -- --host 127.0.0.1 --port 4173`
 - `curl -I http://127.0.0.1:4173`
 
 结果：

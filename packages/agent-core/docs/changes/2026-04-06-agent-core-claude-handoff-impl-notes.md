@@ -89,7 +89,7 @@ reviews: []
 安装依赖：
 
 ```bash
-cd /Users/xforg/AI_SPACE/agent-core
+cd /Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core
 npm install
 ```
 
@@ -108,7 +108,7 @@ npm run serve
 Web UI（单独）：
 
 ```bash
-cd /Users/xforg/AI_SPACE/agent-core/web
+cd /Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/web
 npm install
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
@@ -122,7 +122,7 @@ npm run dev:all
 验证：
 
 ```bash
-cd /Users/xforg/AI_SPACE/agent-core
+cd /Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core
 npm run typecheck
 npm test
 npm run build

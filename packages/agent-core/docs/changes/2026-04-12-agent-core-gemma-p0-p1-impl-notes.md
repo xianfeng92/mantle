@@ -85,16 +85,16 @@ Updated the web client to fetch `/diagnostics` and display:
 
 # Files
 
-- `/Users/xforg/AI_SPACE/agent-core/src/computer-use.ts`
-- `/Users/xforg/AI_SPACE/agent-core/src/tool-staging.ts`
-- `/Users/xforg/AI_SPACE/agent-core/src/agent.ts`
-- `/Users/xforg/AI_SPACE/agent-core/src/system-prompt.ts`
-- `/Users/xforg/AI_SPACE/agent-core/src/service.ts`
-- `/Users/xforg/AI_SPACE/agent-core/src/http.ts`
-- `/Users/xforg/AI_SPACE/agent-core/src/tracing.ts`
-- `/Users/xforg/AI_SPACE/agent-core/web/src/lib/agent-core.ts`
-- `/Users/xforg/AI_SPACE/agent-core/web/src/hooks/use-agent-core-app.ts`
-- `/Users/xforg/AI_SPACE/agent-core/web/src/App.tsx`
+- `/Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/src/computer-use.ts`
+- `/Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/src/tool-staging.ts`
+- `/Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/src/agent.ts`
+- `/Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/src/system-prompt.ts`
+- `/Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/src/service.ts`
+- `/Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/src/http.ts`
+- `/Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/src/tracing.ts`
+- `/Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/web/src/lib/agent-core.ts`
+- `/Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/web/src/hooks/use-agent-core-app.ts`
+- `/Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/web/src/App.tsx`
 
 # Validation
 

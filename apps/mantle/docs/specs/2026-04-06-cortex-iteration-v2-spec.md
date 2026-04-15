@@ -235,7 +235,7 @@ app 退出 → SIGTERM → 等待 2s → SIGKILL
 ### 4.3 启动流程
 
 1. 检测 node 路径
-2. 确定 agent-core 目录（Settings 配置 > `~/AI_SPACE/agent-core` 默认值）
+2. 确定 agent-core 目录（Settings 配置 > monorepo 默认值为 `packages/agent-core`）
 3. 对 `http://127.0.0.1:8787/health` 发送健康检查 → 如已返回 `ok: true`，直接标记 `running`（兼容手动启动）
 4. 创建 `Process()`，设置 `executableURL`、`arguments: ["dist/src/serve.js"]`、`currentDirectoryURL`、`environment`
 5. 捕获 stdout/stderr 到 Pipe（用于日志）
@@ -288,7 +288,7 @@ Connection Tab 新增：
 |--------|------|--------|
 | Auto-start backend | Toggle | ON |
 | Node.js path | 文件选择器 + 文本框 | (auto-detect) |
-| agent-core path | 文件夹选择器 + 文本框 | ~/AI_SPACE/agent-core |
+| agent-core path | 文件夹选择器 + 文本框 | `packages/agent-core` |
 | Backend status | 状态标签 + Restart 按钮 | — |
 
 ### 4.7 文件清单

@@ -612,7 +612,7 @@ test("Iteration 5: .gitignore includes web/node_modules exclusion", async () => 
 
 test("Iteration 5: design spec has implemented status", async () => {
   const { readFile } = await import("node:fs/promises");
-  const specPath = "/Users/xforg/AI_SPACE/agent-core/docs/specs/2026-04-05-agent-core-design-spec.md";
+  const specPath = "/Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/docs/specs/2026-04-05-agent-core-design-spec.md";
   const content = await readFile(specPath, "utf8");
   assert.ok(
     content.includes("status: implemented"),

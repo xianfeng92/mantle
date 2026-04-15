@@ -15,14 +15,14 @@
 先启动后端：
 
 ```bash
-cd /Users/xforg/AI_SPACE/agent-core
+cd /Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core
 npm run serve
 ```
 
 再启动前端：
 
 ```bash
-cd /Users/xforg/AI_SPACE/agent-core/web
+cd /Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/web
 cp .env.example .env.local
 npm install
 npm run dev -- --host 127.0.0.1 --port 5173
