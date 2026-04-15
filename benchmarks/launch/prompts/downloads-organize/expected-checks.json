@@ -1,0 +1,31 @@
+[
+  {
+    "caseId": "downloads-organize-basic",
+    "requireAudit": true,
+    "requireMoveRecord": true,
+    "allFilesMustRemainUnderSandbox": true,
+    "minMoves": 5,
+    "minCreatedDirectories": 3
+  },
+  {
+    "caseId": "downloads-organize-conservative",
+    "requireAudit": true,
+    "requireMoveRecord": true,
+    "allFilesMustRemainUnderSandbox": true,
+    "minMoves": 2,
+    "maxMoves": 8,
+    "minCreatedDirectories": 2,
+    "rootShouldRetainAnyOf": [
+      "archive.zip",
+      "design-mockup.sketch",
+      "resume-v3.docx"
+    ]
+  },
+  {
+    "caseId": "downloads-rollback",
+    "seedCaseId": "downloads-organize-basic",
+    "requireRollbackToBaseline": true,
+    "requireAllSeedMovesRolledBack": true,
+    "allFilesMustRemainUnderSandbox": true
+  }
+]

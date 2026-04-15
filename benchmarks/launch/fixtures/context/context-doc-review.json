@@ -1,0 +1,16 @@
+{
+  "frontmostApp": "Safari",
+  "windowTitle": "Mantle Launch Benchmark Spec",
+  "recentFiles": [
+    "docs/specs/2026-04-12-mantle-launch-workflows-and-benchmark-spec.md",
+    "docs/specs/2026-04-12-mantle-launch-readme-and-assets-spec.md",
+    "docs/changes/2026-04-12-mantle-launch-readme-assets-skeleton-impl-notes.md"
+  ],
+  "selectedText": "The replay suite should prove that the launch workflows are repeatable and measurable, not just good-looking demos.",
+  "conversationHint": "The user wants a concise todo list for wrapping up launch docs.",
+  "expectedTaskThemes": [
+    "review benchmark gate definitions",
+    "update README or quickstart copy",
+    "sync demo script or launch assets"
+  ]
+}

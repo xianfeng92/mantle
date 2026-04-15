@@ -1,0 +1,66 @@
+[
+  {
+    "caseId": "selection-email-reply",
+    "language": "en",
+    "outputFormat": "paragraph",
+    "requiredPatterns": [
+      "thank",
+      "week|timeline|schedule|delay",
+      "preview|onboarding|qa"
+    ],
+    "forbiddenPatterns": [
+      "as an ai",
+      "benchmark"
+    ]
+  },
+  {
+    "caseId": "selection-cn-summary",
+    "language": "zh",
+    "outputFormat": "bullet_list",
+    "minItems": 3,
+    "maxItems": 3,
+    "requiredPatterns": [
+      "Mac|mac",
+      "下载|整理|下载目录",
+      "待办|todo|上下文"
+    ]
+  },
+  {
+    "caseId": "selection-tone-rewrite",
+    "language": "en",
+    "outputFormat": "paragraph",
+    "requiredPatterns": [
+      "onboarding",
+      "clean|refine|polish",
+      "later today|today"
+    ],
+    "forbiddenPatterns": [
+      "kinda",
+      "hacked together"
+    ]
+  },
+  {
+    "caseId": "selection-bullets",
+    "language": "en",
+    "outputFormat": "bullet_list",
+    "minItems": 4,
+    "maxItems": 4,
+    "requiredPatterns": [
+      "benchmark|suite",
+      "trace|diagnostic",
+      "release|README|demo"
+    ]
+  },
+  {
+    "caseId": "selection-shorten",
+    "language": "en",
+    "outputFormat": "paragraph",
+    "maxLengthRatio": 0.7,
+    "requiredPatterns": [
+      "local-first|Mac agent|Mac",
+      "rewrite",
+      "downloads|downloads folder",
+      "todo|next steps"
+    ]
+  }
+]

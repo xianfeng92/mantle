@@ -1,0 +1,6 @@
+Hi Maya,
+
+Thanks for sending the beta timeline. The team made good progress this week, but I do not think we can ship the customer preview on Friday without cutting QA too aggressively. We still need one more round of copy review and a final pass on onboarding. Could we move the preview by one week and use that time to tighten the first-run experience?
+
+Best,
+Jordan

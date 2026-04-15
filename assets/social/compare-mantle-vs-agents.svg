@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="90" y1="70" x2="1180" y2="650" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFDF9"/>
+      <stop offset="1" stop-color="#F1F6FA"/>
+    </linearGradient>
+    <linearGradient id="iconBg" x1="0" y1="0" x2="96" y2="96" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#142033"/>
+      <stop offset="1" stop-color="#1C2938"/>
+    </linearGradient>
+    <linearGradient id="iconOrbit" x1="18" y1="18" x2="79" y2="79" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D6E8FF"/>
+      <stop offset="0.42" stop-color="#92BFFF"/>
+      <stop offset="1" stop-color="#4E91FF"/>
+    </linearGradient>
+    <radialGradient id="iconAnchor" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(30 68) rotate(46.5) scale(9.4)">
+      <stop stop-color="#E4FFEA"/>
+      <stop offset="0.42" stop-color="#94E7A4"/>
+      <stop offset="1" stop-color="#33BB60"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <text x="92" y="110" fill="#152233" font-family="Helvetica, Arial, sans-serif" font-size="42" font-weight="700">Mantle vs common agent shapes</text>
+  <text x="92" y="148" fill="#607A8C" font-family="Helvetica, Arial, sans-serif" font-size="20">Context-aware local workflows, approvals, audit trail, and rollback in one native loop.</text>
+
+  <rect x="90" y="180" width="1100" height="470" rx="28" fill="#FFFEFB" stroke="#D7E1EA" stroke-width="2"/>
+  <rect x="900" y="194" width="250" height="442" rx="24" fill="#ECF7F0" stroke="#BFD6C7"/>
+
+  <text x="156" y="242" fill="#1E3447" font-family="Helvetica, Arial, sans-serif" font-size="24" font-weight="700">Capability</text>
+  <text x="468" y="242" fill="#1E3447" font-family="Helvetica, Arial, sans-serif" font-size="24" font-weight="700">Chat Assistant</text>
+  <text x="710" y="242" fill="#1E3447" font-family="Helvetica, Arial, sans-serif" font-size="24" font-weight="700">Browser Agent</text>
+
+  <g transform="translate(930 212)">
+    <rect width="36" height="36" rx="10" fill="url(#iconBg)"/>
+    <path d="M15 10C11 11 8 15 7 20C6 24 7 29 11 33C15 36 21 37 26 34C30 31 33 27 33 22C33 18 31 14 27 11" stroke="url(#iconOrbit)" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M24 12C26 14 28 16 28 19" stroke="#D7E8FF" stroke-opacity="0.2" stroke-width="1.1" stroke-linecap="round"/>
+    <path d="M14 27C17 24 20 22 23 22" stroke="#C0D0E3" stroke-opacity="0.24" stroke-width="1.2" stroke-linecap="round"/>
+    <circle cx="13" cy="27" r="3.2" fill="url(#iconAnchor)"/>
+    <circle cx="13" cy="27" r="1.1" fill="#F4FFF6" fill-opacity="0.62"/>
+  </g>
+  <text x="976" y="242" fill="#1E3447" font-family="Helvetica, Arial, sans-serif" font-size="24" font-weight="700">Mantle</text>
+
+  <text x="156" y="316" fill="#5A7385" font-family="Helvetica, Arial, sans-serif" font-size="21">Current app context</text>
+  <text x="156" y="378" fill="#5A7385" font-family="Helvetica, Arial, sans-serif" font-size="21">Text selection aware</text>
+  <text x="156" y="440" fill="#5A7385" font-family="Helvetica, Arial, sans-serif" font-size="21">Local file actions</text>
+  <text x="156" y="502" fill="#5A7385" font-family="Helvetica, Arial, sans-serif" font-size="21">Approvals + audit trail</text>
+  <text x="156" y="564" fill="#5A7385" font-family="Helvetica, Arial, sans-serif" font-size="21">Rollback</text>
+
+  <text x="496" y="316" fill="#8E897F" font-family="Helvetica, Arial, sans-serif" font-size="21">No</text>
+  <text x="496" y="378" fill="#8E897F" font-family="Helvetica, Arial, sans-serif" font-size="21">No</text>
+  <text x="496" y="440" fill="#8E897F" font-family="Helvetica, Arial, sans-serif" font-size="21">Limited</text>
+  <text x="496" y="502" fill="#8E897F" font-family="Helvetica, Arial, sans-serif" font-size="21">Rare</text>
+  <text x="496" y="564" fill="#8E897F" font-family="Helvetica, Arial, sans-serif" font-size="21">No</text>
+
+  <text x="730" y="316" fill="#8E897F" font-family="Helvetica, Arial, sans-serif" font-size="21">Limited</text>
+  <text x="730" y="378" fill="#8E897F" font-family="Helvetica, Arial, sans-serif" font-size="21">Usually no</text>
+  <text x="730" y="440" fill="#8E897F" font-family="Helvetica, Arial, sans-serif" font-size="21">Browser only</text>
+  <text x="730" y="502" fill="#8E897F" font-family="Helvetica, Arial, sans-serif" font-size="21">Varies</text>
+  <text x="730" y="564" fill="#8E897F" font-family="Helvetica, Arial, sans-serif" font-size="21">No</text>
+
+  <text x="980" y="316" fill="#1E3447" font-family="Helvetica, Arial, sans-serif" font-size="21" font-weight="700">Yes</text>
+  <text x="980" y="378" fill="#1E3447" font-family="Helvetica, Arial, sans-serif" font-size="21" font-weight="700">Yes</text>
+  <text x="980" y="440" fill="#1E3447" font-family="Helvetica, Arial, sans-serif" font-size="21" font-weight="700">Yes</text>
+  <text x="980" y="502" fill="#1E3447" font-family="Helvetica, Arial, sans-serif" font-size="21" font-weight="700">Yes</text>
+  <text x="980" y="564" fill="#1E3447" font-family="Helvetica, Arial, sans-serif" font-size="21" font-weight="700">Yes</text>
+</svg>

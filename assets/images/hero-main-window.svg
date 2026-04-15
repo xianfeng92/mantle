@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="70" x2="1160" y2="650" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F6F1E8"/>
+      <stop offset="1" stop-color="#EDF2F6"/>
+    </linearGradient>
+    <linearGradient id="window" x1="118" y1="104" x2="1160" y2="604" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFEFB"/>
+      <stop offset="1" stop-color="#F6FAFD"/>
+    </linearGradient>
+    <linearGradient id="iconBg" x1="0" y1="0" x2="96" y2="96" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#142033"/>
+      <stop offset="1" stop-color="#1C2938"/>
+    </linearGradient>
+    <linearGradient id="iconOrbit" x1="18" y1="18" x2="79" y2="79" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D6E8FF"/>
+      <stop offset="0.42" stop-color="#92BFFF"/>
+      <stop offset="1" stop-color="#4E91FF"/>
+    </linearGradient>
+    <radialGradient id="iconAnchor" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(30 68) rotate(46.5) scale(9.4)">
+      <stop stop-color="#E4FFEA"/>
+      <stop offset="0.42" stop-color="#94E7A4"/>
+      <stop offset="1" stop-color="#33BB60"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <rect x="84" y="76" width="1112" height="568" rx="34" fill="url(#window)" stroke="#1F3245" stroke-width="3"/>
+  <rect x="84" y="76" width="1112" height="52" rx="34" fill="#F2EFE7"/>
+  <circle cx="118" cy="102" r="7" fill="#E88A7A"/>
+  <circle cx="142" cy="102" r="7" fill="#E7C76E"/>
+  <circle cx="166" cy="102" r="7" fill="#7FCA96"/>
+
+  <rect x="112" y="150" width="282" height="454" rx="24" fill="#F2E9DB"/>
+  <rect x="422" y="150" width="520" height="454" rx="24" fill="#F9FBFD"/>
+  <rect x="964" y="150" width="204" height="454" rx="24" fill="#EEF4F8"/>
+
+  <g transform="translate(132 174)">
+    <rect width="56" height="56" rx="15" fill="url(#iconBg)"/>
+    <path d="M22 15C15 17 10 23 9 31C7 40 10 48 17 54C23 59 33 60 41 56C49 52 53 44 53 36C53 30 50 23 44 18" stroke="url(#iconOrbit)" stroke-width="6.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M40 20C44 23 47 28 48 33" stroke="#D7E8FF" stroke-opacity="0.2" stroke-width="1.4" stroke-linecap="round"/>
+    <path d="M20 46C24 42 29 40 35 39" stroke="#C0D0E3" stroke-opacity="0.24" stroke-width="1.6" stroke-linecap="round"/>
+    <circle cx="18" cy="46" r="4.4" fill="url(#iconAnchor)"/>
+    <circle cx="18" cy="46" r="1.6" fill="#F4FFF6" fill-opacity="0.62"/>
+  </g>
+
+  <text x="204" y="208" fill="#152233" font-family="Helvetica, Arial, sans-serif" font-size="34" font-weight="700">Mantle</text>
+  <text x="132" y="254" fill="#587183" font-family="Helvetica, Arial, sans-serif" font-size="18">Local-first context-aware workflows</text>
+
+  <rect x="132" y="286" width="242" height="78" rx="18" fill="#FFFFFF" stroke="#D5DCD5"/>
+  <text x="154" y="318" fill="#182B3D" font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="700">Launch Workflows</text>
+  <text x="154" y="344" fill="#557081" font-family="Helvetica, Arial, sans-serif" font-size="15">Rewrite Selection</text>
+  <text x="154" y="364" fill="#557081" font-family="Helvetica, Arial, sans-serif" font-size="15">Organize Downloads</text>
+
+  <rect x="132" y="384" width="242" height="72" rx="18" fill="#FFFFFF" stroke="#D5DCD5"/>
+  <text x="154" y="416" fill="#182B3D" font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="700">Current Context</text>
+  <text x="154" y="442" fill="#557081" font-family="Helvetica, Arial, sans-serif" font-size="15">Mail • Draft reply to founder intro</text>
+
+  <text x="450" y="198" fill="#142033" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700">Current context-aware conversation</text>
+  <text x="450" y="232" fill="#587183" font-family="Helvetica, Arial, sans-serif" font-size="19">Selection, recent files, approvals, and action ledger all stay visible.</text>
+
+  <rect x="450" y="272" width="406" height="82" rx="20" fill="#FFFFFF" stroke="#DCE6EF"/>
+  <text x="474" y="308" fill="#203549" font-family="Helvetica, Arial, sans-serif" font-size="21">Rewrite this selected paragraph into a concise, warmer reply.</text>
+
+  <rect x="474" y="382" width="356" height="112" rx="22" fill="#ECF7F0" stroke="#B8D4C0"/>
+  <text x="500" y="416" fill="#163040" font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="700">Action Ledger</text>
+  <text x="500" y="446" fill="#345266" font-family="Helvetica, Arial, sans-serif" font-size="16">Selection anchored • Draft reply ready • Audit recorded</text>
+  <text x="500" y="472" fill="#345266" font-family="Helvetica, Arial, sans-serif" font-size="16">Target: selected text</text>
+
+  <rect x="988" y="196" width="156" height="38" rx="19" fill="#E8F0F6"/>
+  <text x="1022" y="221" fill="#28465F" font-family="Helvetica, Arial, sans-serif" font-size="16">Model: Gemma</text>
+  <rect x="988" y="248" width="156" height="38" rx="19" fill="#EAF6EC"/>
+  <text x="1020" y="273" fill="#1C5B37" font-family="Helvetica, Arial, sans-serif" font-size="16">Audit Trail</text>
+
+  <rect x="988" y="316" width="156" height="168" rx="20" fill="#FFFFFF" stroke="#DCE6EF"/>
+  <text x="1012" y="352" fill="#1B3144" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="700">Safety Surface</text>
+  <text x="1012" y="382" fill="#537083" font-family="Helvetica, Arial, sans-serif" font-size="15">Approval ready</text>
+  <text x="1012" y="404" fill="#537083" font-family="Helvetica, Arial, sans-serif" font-size="15">Rollback available</text>
+  <text x="1012" y="426" fill="#537083" font-family="Helvetica, Arial, sans-serif" font-size="15">Current app context</text>
+
+  <text x="450" y="560" fill="#4D697A" font-family="Helvetica, Arial, sans-serif" font-size="22">Mantle turns local context into reviewable action instead of stopping at chat.</text>
+</svg>

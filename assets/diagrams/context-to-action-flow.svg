@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="480" viewBox="0 0 1280 480" fill="none">
+  <rect width="1280" height="480" fill="#FFFDF9"/>
+  <rect x="70" y="120" width="240" height="180" rx="28" fill="#F0E6D7" stroke="#BDA98A"/>
+  <rect x="370" y="120" width="260" height="180" rx="28" fill="#EAF2EC" stroke="#A7C0B2"/>
+  <rect x="690" y="120" width="240" height="180" rx="28" fill="#EEF3F9" stroke="#B5CADC"/>
+  <rect x="990" y="120" width="220" height="180" rx="28" fill="#F8ECD3" stroke="#D6BE7A"/>
+  <text x="120" y="185" fill="#1E3A2F" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700">Context</text>
+  <text x="100" y="225" fill="#5D5346" font-family="Helvetica, Arial, sans-serif" font-size="20">App, window, selection, recent files</text>
+  <text x="430" y="185" fill="#1E3A2F" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700">Runtime</text>
+  <text x="410" y="225" fill="#355247" font-family="Helvetica, Arial, sans-serif" font-size="20">Tools, approvals, traces, memory</text>
+  <text x="745" y="185" fill="#24415D" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700">Actions</text>
+  <text x="720" y="225" fill="#45637D" font-family="Helvetica, Arial, sans-serif" font-size="20">Rewrite, organize, summarize</text>
+  <text x="1035" y="185" fill="#5C4A1E" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700">Safety</text>
+  <text x="1025" y="225" fill="#7A6630" font-family="Helvetica, Arial, sans-serif" font-size="20">Approval, audit, rollback</text>
+  <path d="M310 210H355" stroke="#1E3A2F" stroke-width="6" stroke-linecap="round"/>
+  <path d="M630 210H675" stroke="#1E3A2F" stroke-width="6" stroke-linecap="round"/>
+  <path d="M930 210H975" stroke="#1E3A2F" stroke-width="6" stroke-linecap="round"/>
+</svg>

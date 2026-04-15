@@ -1,0 +1,30 @@
+[
+  {
+    "caseId": "context-doc-review-todo",
+    "title": "Turn a documentation review context into a todo list",
+    "fixtureFile": "context-doc-review.json",
+    "instruction": "Turn my current work context into a concise todo list with 3 to 5 bullet points.",
+    "expected": "A short todo list grounded in benchmark docs, quickstart copy, and demo assets."
+  },
+  {
+    "caseId": "context-coding-next-steps",
+    "title": "Turn a coding session into next steps",
+    "fixtureFile": "context-coding-next-steps.json",
+    "instruction": "Based on this context, give me 3 to 5 concrete next steps in English. Use the visible files and selected text as anchors so the list covers the launch workflow card work, the benchmark runner work, and the public export or staging verification work when those clues are present.",
+    "expected": "A clear English next-step list grounded in launch cards, runner integration, and export verification."
+  },
+  {
+    "caseId": "context-meeting-summary",
+    "title": "Summarize meeting notes and propose follow-up actions",
+    "fixtureFile": "context-meeting-summary.json",
+    "instruction": "Please give me a brief summary in English followed by 3 follow-up bullets. Keep the follow-ups tied to the visible owners, demo or GIF assets, and the release rehearsal or schedule when those clues are present.",
+    "expected": "A short summary and three follow-up bullets grounded in owners, assets, and rehearsal."
+  },
+  {
+    "caseId": "context-followup-list",
+    "title": "Prioritize follow-up actions from recent launch docs",
+    "fixtureFile": "context-followup-list.json",
+    "instruction": "Generate a prioritized follow-up list in English with 3 to 4 items. Reference visible files exactly when useful.",
+    "expected": "A prioritized task list tied to README, quickstart, safety, and re-running the benchmark."
+  }
+]

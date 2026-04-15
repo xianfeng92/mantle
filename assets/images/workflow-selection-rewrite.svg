@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="80" x2="1080" y2="560" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8F4EB"/>
+      <stop offset="1" stop-color="#EFF4F8"/>
+    </linearGradient>
+    <linearGradient id="iconBg" x1="0" y1="0" x2="96" y2="96" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#142033"/>
+      <stop offset="1" stop-color="#1C2938"/>
+    </linearGradient>
+    <linearGradient id="iconOrbit" x1="18" y1="18" x2="79" y2="79" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D6E8FF"/>
+      <stop offset="0.42" stop-color="#92BFFF"/>
+      <stop offset="1" stop-color="#4E91FF"/>
+    </linearGradient>
+    <radialGradient id="iconAnchor" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(30 68) rotate(46.5) scale(9.4)">
+      <stop stop-color="#E4FFEA"/>
+      <stop offset="0.42" stop-color="#94E7A4"/>
+      <stop offset="1" stop-color="#33BB60"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="640" fill="url(#bg)"/>
+  <rect x="70" y="72" width="1060" height="496" rx="28" fill="#FFFEFB" stroke="#23384D" stroke-width="3"/>
+
+  <g transform="translate(100 102)">
+    <rect width="52" height="52" rx="14" fill="url(#iconBg)"/>
+    <path d="M22 15C15 17 10 23 9 31C7 40 10 48 17 54C23 59 33 60 41 56C49 52 53 44 53 36C53 30 50 23 44 18" stroke="url(#iconOrbit)" stroke-width="6.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M40 20C44 23 47 28 48 33" stroke="#D7E8FF" stroke-opacity="0.2" stroke-width="1.4" stroke-linecap="round"/>
+    <path d="M20 46C24 42 29 40 35 39" stroke="#C0D0E3" stroke-opacity="0.24" stroke-width="1.6" stroke-linecap="round"/>
+    <circle cx="18" cy="46" r="4.4" fill="url(#iconAnchor)"/>
+    <circle cx="18" cy="46" r="1.6" fill="#F4FFF6" fill-opacity="0.62"/>
+  </g>
+
+  <text x="170" y="136" fill="#152233" font-family="Helvetica, Arial, sans-serif" font-size="34" font-weight="700">Workflow: Rewrite Selection</text>
+  <text x="170" y="172" fill="#607A8C" font-family="Helvetica, Arial, sans-serif" font-size="19">Fastest path to “see value in 30 seconds” with context still anchored.</text>
+
+  <rect x="102" y="222" width="410" height="252" rx="22" fill="#F5ECDD" stroke="#D6CAB7"/>
+  <text x="128" y="260" fill="#445B6E" font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="700">Selected text</text>
+  <text x="128" y="298" fill="#5F5549" font-family="Helvetica, Arial, sans-serif" font-size="22">Hi Maya — thanks for the quick intro. I am interested,</text>
+  <text x="128" y="330" fill="#5F5549" font-family="Helvetica, Arial, sans-serif" font-size="22">but I need a tighter version that feels warmer and more</text>
+  <text x="128" y="362" fill="#5F5549" font-family="Helvetica, Arial, sans-serif" font-size="22">direct before I reply.</text>
+
+  <rect x="552" y="288" width="110" height="68" rx="22" fill="#E4EEF5"/>
+  <text x="582" y="332" fill="#28465F" font-family="Helvetica, Arial, sans-serif" font-size="30">→</text>
+
+  <rect x="704" y="222" width="390" height="252" rx="22" fill="#EBF7EF" stroke="#BCD8C5"/>
+  <text x="732" y="260" fill="#1F364B" font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="700">Grounded draft</text>
+  <text x="732" y="298" fill="#27465D" font-family="Helvetica, Arial, sans-serif" font-size="22">Thanks, Maya — I appreciate the introduction.</text>
+  <text x="732" y="330" fill="#27465D" font-family="Helvetica, Arial, sans-serif" font-size="22">I am interested and would love to learn more.</text>
+  <rect x="732" y="370" width="144" height="34" rx="17" fill="#DDECF3"/>
+  <text x="756" y="392" fill="#2D5068" font-family="Helvetica, Arial, sans-serif" font-size="15">Selection anchored</text>
+  <rect x="886" y="370" width="112" height="34" rx="17" fill="#E1F3E7"/>
+  <text x="914" y="392" fill="#246040" font-family="Helvetica, Arial, sans-serif" font-size="15">Audit trail</text>
+
+  <text x="102" y="526" fill="#527081" font-family="Helvetica, Arial, sans-serif" font-size="22">Mantle uses the current selection as the task anchor, so the workflow feels grounded instead of generic.</text>
+</svg>

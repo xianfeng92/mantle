@@ -1,0 +1,17 @@
+{
+  "frontmostApp": "Finder",
+  "windowTitle": "Recent",
+  "recentFiles": [
+    "README.md",
+    "docs/QUICKSTART.md",
+    "docs/SAFETY.md",
+    "benchmarks/launch/README.md"
+  ],
+  "selectedText": "",
+  "conversationHint": "The user has several launch docs open and wants a prioritized follow-up list.",
+  "expectedTaskThemes": [
+    "polish README or quickstart",
+    "review safety messaging",
+    "re-run launch benchmarks"
+  ]
+}

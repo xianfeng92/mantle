@@ -1,0 +1,37 @@
+[
+  {
+    "caseId": "selection-email-reply",
+    "title": "Draft a concise professional email reply",
+    "fixtureFile": "email-fragment.txt",
+    "instruction": "Write a concise and professional reply in English. Keep it to one short paragraph, include a brief thanks or acknowledgement, and acknowledge the schedule risk.",
+    "expected": "A short English email reply that acknowledges the delay request and sounds professional."
+  },
+  {
+    "caseId": "selection-cn-summary",
+    "title": "Summarize an English product brief in Chinese",
+    "fixtureFile": "product-brief.txt",
+    "instruction": "用中文总结成 3 条要点，使用 bullet list。",
+    "expected": "Three Chinese bullet points summarizing the main launch message."
+  },
+  {
+    "caseId": "selection-tone-rewrite",
+    "title": "Rewrite an informal Slack message in a professional tone",
+    "fixtureFile": "slack-message.txt",
+    "instruction": "Rewrite this into more professional written English while keeping the meaning.",
+    "expected": "A more polished written-English version of the Slack message."
+  },
+  {
+    "caseId": "selection-bullets",
+    "title": "Extract bullet points from a dense paragraph",
+    "fixtureFile": "project-paragraph.txt",
+    "instruction": "Turn this into a concise bullet list with 4 items.",
+    "expected": "A four-item bullet list capturing the main benchmark requirements."
+  },
+  {
+    "caseId": "selection-shorten",
+    "title": "Shorten a verbose announcement",
+    "fixtureFile": "verbose-announcement.txt",
+    "instruction": "Shorten this substantially in English while keeping the core launch message and the named core capabilities.",
+    "expected": "A significantly shorter English version that preserves the main product message."
+  }
+]

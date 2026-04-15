@@ -1,0 +1,16 @@
+{
+  "frontmostApp": "Notes",
+  "windowTitle": "Launch Planning Sync",
+  "recentFiles": [
+    "docs/launch/demo-script.md",
+    "assets/gifs/README.md",
+    "docs/ROADMAP.md"
+  ],
+  "selectedText": "Owners: Maya records GIFs, Jordan tightens quickstart copy, Sam runs the release rehearsal.",
+  "conversationHint": "The user just finished reviewing meeting notes and wants a short summary plus follow-up actions.",
+  "expectedTaskThemes": [
+    "capture owners",
+    "prepare demo assets",
+    "schedule or run rehearsal"
+  ]
+}

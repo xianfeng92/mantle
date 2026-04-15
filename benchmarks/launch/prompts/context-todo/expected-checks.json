@@ -1,0 +1,50 @@
+[
+  {
+    "caseId": "context-doc-review-todo",
+    "language": "en",
+    "outputFormat": "bullet_list",
+    "minItems": 3,
+    "maxItems": 5,
+    "requiredPatterns": [
+      "benchmark|gate",
+      "README|quickstart",
+      "demo|asset|script"
+    ]
+  },
+  {
+    "caseId": "context-coding-next-steps",
+    "language": "en",
+    "outputFormat": "bullet_list",
+    "minItems": 3,
+    "maxItems": 5,
+    "requiredPatterns": [
+      "launch workflow|starter|card",
+      "benchmark|runner",
+      "export|staging|public"
+    ]
+  },
+  {
+    "caseId": "context-meeting-summary",
+    "language": "en",
+    "outputFormat": "summary_plus_bullets",
+    "minItems": 3,
+    "maxItems": 3,
+    "requiredPatterns": [
+      "Maya|Jordan|Sam|owner",
+      "demo|gif|asset",
+      "rehearsal|schedule"
+    ]
+  },
+  {
+    "caseId": "context-followup-list",
+    "language": "en",
+    "outputFormat": "bullet_list",
+    "minItems": 3,
+    "maxItems": 4,
+    "requiredPatterns": [
+      "README|quickstart",
+      "safety",
+      "benchmark"
+    ]
+  }
+]

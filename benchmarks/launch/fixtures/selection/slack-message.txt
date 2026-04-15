@@ -1,0 +1,1 @@
+hey team, quick heads up: i hacked together a first pass for the onboarding thing last night. it's kinda rough and probably needs cleanup before we show it to anyone, but it should at least prove the flow works. if nobody objects i'll push a cleaner version later today.

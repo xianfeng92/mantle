@@ -1,0 +1,16 @@
+{
+  "frontmostApp": "Xcode",
+  "windowTitle": "AppViewModel.swift — Mantle",
+  "recentFiles": [
+    "Mantle/Mantle/ViewModels/AppViewModel.swift",
+    "agent-core/tests/e2e/launch/launch-benchmark-runner.ts",
+    "scripts/export-mantle-public-repo.sh"
+  ],
+  "selectedText": "Need launch workflow cards that map directly to Rewrite Selection, Organize Downloads, and Turn Context into Todo.",
+  "conversationHint": "The user is in implementation mode and wants the next concrete steps.",
+  "expectedTaskThemes": [
+    "wire launch workflow cards",
+    "finish benchmark runner integration",
+    "verify public export or staging"
+  ]
+}

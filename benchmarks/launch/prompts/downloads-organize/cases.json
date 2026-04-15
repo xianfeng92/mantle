@@ -1,0 +1,31 @@
+[
+  {
+    "caseId": "downloads-organize-basic",
+    "title": "Organize a messy downloads folder",
+    "fixtureDir": "default",
+    "mode": "organize",
+    "sandboxFolder": "Downloads",
+    "planInstruction": "Please inspect the Downloads folder and propose a normal organization plan only. This is not a conservative pass: move clearly classifiable files into category folders, and only leave files in place if the destination is genuinely unclear. Do not move files yet.",
+    "confirmInstruction": "Confirmed. Execute the normal organization plan now. Keep all moves inside Downloads, do not delete anything, and do not overwrite files. Do not switch into conservative mode unless a file is genuinely hard to classify.",
+    "expected": "Files are organized into clear subfolders, with audit and move records."
+  },
+  {
+    "caseId": "downloads-organize-conservative",
+    "title": "Organize conservatively and leave ambiguous files alone",
+    "fixtureDir": "default",
+    "mode": "organize",
+    "sandboxFolder": "Downloads",
+    "planInstruction": "Inspect the Downloads folder and propose a conservative organization plan. Only move files when the destination is obvious. Leave archives, design/source files, resumes or personal documents, and any uncertain items in place. Do not move files yet.",
+    "confirmInstruction": "Confirmed. Execute the conservative plan now. Keep all moves inside Downloads, avoid risky guesses, and leave archives, design/source files, resumes or personal documents, and any uncertain items untouched with a brief explanation.",
+    "expected": "Only high-confidence files are moved. Ambiguous files remain in place with a reason."
+  },
+  {
+    "caseId": "downloads-rollback",
+    "title": "Rollback the previous organize run",
+    "fixtureDir": "default",
+    "mode": "rollback",
+    "sandboxFolder": "Downloads",
+    "seedCaseId": "downloads-organize-basic",
+    "expected": "After rollback, all files return to their original locations."
+  }
+]
