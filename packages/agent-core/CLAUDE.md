@@ -88,7 +88,7 @@ Claude 接手时，建议按这个顺序读：
 安装依赖：
 
 ```bash
-cd /Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core
+cd packages/agent-core
 npm install
 ```
 
@@ -107,7 +107,7 @@ npm run serve
 启动 Web UI（单独）：
 
 ```bash
-cd /Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core/web
+cd packages/agent-core/web
 npm install
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
@@ -121,7 +121,7 @@ npm run dev:all
 常用验证：
 
 ```bash
-cd /Users/xforg/AI_SPACE/mantle-monorepo/packages/agent-core
+cd packages/agent-core
 npm run typecheck
 npm test
 npm run build

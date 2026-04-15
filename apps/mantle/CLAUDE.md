@@ -89,7 +89,7 @@ Mantle/
 ## 运行与验证
 
 ```bash
-cd /Users/xforg/AI_SPACE/Mantle
+cd apps/mantle
 # Xcode 打开
 open Mantle.xcodeproj
 # 或命令行构建
