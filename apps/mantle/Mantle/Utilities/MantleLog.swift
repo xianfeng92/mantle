@@ -31,4 +31,10 @@ enum MantleLog {
 
     /// Computer use (AX tree, input synthesis, screenshots)
     static let computerUse = Logger(subsystem: subsystem, category: "computer-use")
+
+    static func runtime(_ category: String, _ message: String) {
+        Task {
+            await RuntimeLogStore.shared.append(category: category, message: message)
+        }
+    }
 }

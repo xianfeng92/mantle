@@ -41,6 +41,7 @@
 		BB2B3C4D5E6F7A8B9C0D1E02 /* CopyToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2B3C4D5E6F7A8B9C0D1E02 /* CopyToast.swift */; };
 		BB33A2B3C4D5E6F7A8B9C003 /* TwitterBookmarkDaemon.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC33A2B3C4D5E6F7A8B9C003 /* TwitterBookmarkDaemon.swift */; };
 		BB3C4D5E6F7A8B9C0D1E2F03 /* MantleLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA3C4D5E6F7A8B9C0D1E2F03 /* MantleLog.swift */; };
+		BB4C5D6E7F8A9B0C1D2E3F04 /* RuntimeLogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA4C5D6E7F8A9B0C1D2E3F04 /* RuntimeLogStore.swift */; };
 		BB44A2B3C4D5E6F7A8B9C004 /* DailyDigestScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC44A2B3C4D5E6F7A8B9C004 /* DailyDigestScheduler.swift */; };
 		BB4D5E6F7A8B9C0D1E2F3A04 /* LaunchSurfaceComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA4D5E6F7A8B9C0D1E2F3A04 /* LaunchSurfaceComponents.swift */; };
 		BB55A2B3C4D5E6F7A8B9C005 /* TwitterDigestListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC55A2B3C4D5E6F7A8B9C005 /* TwitterDigestListView.swift */; };
@@ -113,6 +114,7 @@
 		AA1B2C3D4E5F6A7B8C9D0E01 /* DesignConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignConstants.swift; sourceTree = "<group>"; };
 		AA2B3C4D5E6F7A8B9C0D1E02 /* CopyToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CopyToast.swift; sourceTree = "<group>"; };
 		AA3C4D5E6F7A8B9C0D1E2F03 /* MantleLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MantleLog.swift; sourceTree = "<group>"; };
+		AA4C5D6E7F8A9B0C1D2E3F04 /* RuntimeLogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeLogStore.swift; sourceTree = "<group>"; };
 		AA4D5E6F7A8B9C0D1E2F3A04 /* LaunchSurfaceComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchSurfaceComponents.swift; sourceTree = "<group>"; };
 		AA5E6F7A8B9C0D1E2F3A405 /* ActionLedgerComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionLedgerComponents.swift; sourceTree = "<group>"; };
 		B2C3D4E5F6A7B8C9D0E1F2A3 /* MarkdownRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownRenderer.swift; sourceTree = "<group>"; };
@@ -329,6 +331,7 @@
 			children = (
 				AA1B2C3D4E5F6A7B8C9D0E01 /* DesignConstants.swift */,
 				AA3C4D5E6F7A8B9C0D1E2F03 /* MantleLog.swift */,
+				AA4C5D6E7F8A9B0C1D2E3F04 /* RuntimeLogStore.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -528,6 +531,7 @@
 				1A8CFB01C9CEDFB1C044B0B8 /* MantleApp.swift in Sources */,
 				BB1B2C3D4E5F6A7B8C9D0E01 /* DesignConstants.swift in Sources */,
 				BB3C4D5E6F7A8B9C0D1E2F03 /* MantleLog.swift in Sources */,
+				BB4C5D6E7F8A9B0C1D2E3F04 /* RuntimeLogStore.swift in Sources */,
 				E2B3C4D5F6A7182930B4C5D6 /* GenerationStatsBar.swift in Sources */,
 				97DFFB151E8BC67B3ACC7EEF /* HITLTypes.swift in Sources */,
 				D4513CE482A7C4192C3D1519 /* MainWindowView.swift in Sources */,

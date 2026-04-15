@@ -83,6 +83,7 @@ actor SSEStreamClient {
 
                         guard let httpResponse = response as? HTTPURLResponse else {
                             MantleLog.sse.error("Invalid response type")
+                            MantleLog.runtime("sse", "invalid response type path=\(path)")
                             continuation.yield(.error(.init(
                                 message: "Invalid response type",
                                 phase: nil, rule: nil, source: nil
@@ -94,6 +95,7 @@ actor SSEStreamClient {
                         // Non-retryable HTTP errors (4xx = client error, not transient)
                         if (400..<500).contains(httpResponse.statusCode) {
                             MantleLog.sse.error("Client error: \(httpResponse.statusCode)")
+                            MantleLog.runtime("sse", "client error path=\(path) status=\(httpResponse.statusCode)")
                             continuation.yield(.error(.init(
                                 message: "HTTP \(httpResponse.statusCode)",
                                 phase: nil, rule: nil, source: nil
@@ -105,10 +107,12 @@ actor SSEStreamClient {
                         // Server errors (5xx) are retryable
                         guard httpResponse.statusCode == 200 else {
                             MantleLog.sse.error("HTTP error: \(httpResponse.statusCode)")
+                            MantleLog.runtime("sse", "http error path=\(path) status=\(httpResponse.statusCode)")
                             throw SSETransientError.httpError(httpResponse.statusCode)
                         }
 
                         MantleLog.sse.info("Connected (attempt \(attempt + 1))")
+                        MantleLog.runtime("sse", "connected path=\(path) attempt=\(attempt + 1)")
                         hasReceivedEvents = false
 
                         var parser = SSELineParser()
@@ -149,6 +153,7 @@ actor SSEStreamClient {
                         if hasReceivedEvents {
                             // Stream ended cleanly (server closed connection after run completed)
                             MantleLog.sse.info("Stream finished")
+                            MantleLog.runtime("sse", "stream finished path=\(path)")
                             continuation.finish()
                             return
                         }
@@ -158,12 +163,14 @@ actor SSEStreamClient {
 
                     } catch is CancellationError {
                         MantleLog.sse.info("Cancelled")
+                        MantleLog.runtime("sse", "cancelled path=\(path)")
                         continuation.finish()
                         return
                     } catch let error as SSETransientError {
                         attempt += 1
                         if attempt > retries {
                             MantleLog.sse.error("Max retries (\(retries)) exceeded: \(error)")
+                            MantleLog.runtime("sse", "max retries exceeded path=\(path) retries=\(retries) error=\(error.localizedDescription)")
                             continuation.yield(.error(.init(
                                 message: "Connection lost after \(retries) retries: \(error.localizedDescription)",
                                 phase: nil, rule: nil, source: nil
@@ -174,6 +181,7 @@ actor SSEStreamClient {
 
                         let delay = retryDelay * pow(2.0, Double(attempt - 1))
                         MantleLog.sse.warning("Transient error (attempt \(attempt)/\(retries)), retrying in \(delay)s: \(error)")
+                        MantleLog.runtime("sse", "transient retry path=\(path) attempt=\(attempt) delay=\(delay)s error=\(error.localizedDescription)")
                         try? await Task.sleep(for: .seconds(delay))
                         continue
 
@@ -183,6 +191,7 @@ actor SSEStreamClient {
                             attempt += 1
                             if attempt > retries {
                                 MantleLog.sse.error("Max retries (\(retries)) exceeded: \(error)")
+                                MantleLog.runtime("sse", "network retries exceeded path=\(path) retries=\(retries) error=\(error.localizedDescription)")
                                 continuation.yield(.error(.init(
                                     message: "Connection lost after \(retries) retries: \(error.localizedDescription)",
                                     phase: nil, rule: nil, source: nil
@@ -193,12 +202,14 @@ actor SSEStreamClient {
 
                             let delay = retryDelay * pow(2.0, Double(attempt - 1))
                             MantleLog.sse.warning("Network error (attempt \(attempt)/\(retries)), retrying in \(delay)s: \(error)")
+                            MantleLog.runtime("sse", "network retry path=\(path) attempt=\(attempt) delay=\(delay)s error=\(error.localizedDescription)")
                             try? await Task.sleep(for: .seconds(delay))
                             continue
                         }
 
                         // Non-retryable error
                         MantleLog.sse.error("Fatal error: \(error)")
+                        MantleLog.runtime("sse", "fatal error path=\(path) error=\(error.localizedDescription)")
                         continuation.yield(.error(.init(
                             message: error.localizedDescription,
                             phase: nil, rule: nil, source: nil

@@ -316,6 +316,10 @@ actor BackendProcessManager {
         if _recentLogs.count > Self.maxLogLines {
             _recentLogs.removeFirst(_recentLogs.count - Self.maxLogLines)
         }
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            MantleLog.runtime("backend-process", trimmed)
+        }
     }
 
     // MARK: - Init
@@ -351,8 +355,10 @@ actor BackendProcessManager {
         // Step 1: Check if backend is already running
         _state = .detecting
         MantleLog.backend.info("Checking for existing backend")
+        MantleLog.runtime("backend", "checking for existing backend on port \(self.config.backendPort)")
         if await isBackendHealthy() {
             MantleLog.backend.info("Backend already running on port \(self.config.backendPort)")
+            MantleLog.runtime("backend", "backend already running on port \(self.config.backendPort)")
             _state = .running
             return
         }
@@ -360,22 +366,26 @@ actor BackendProcessManager {
         // Step 2: Find node
         guard let nodePath = await detectNode() else {
             MantleLog.backend.error("Node.js not found")
+            MantleLog.runtime("backend", "node.js not found")
             _state = .nodeNotFound
             return
         }
         MantleLog.backend.info("Node.js found at \(nodePath)")
+        MantleLog.runtime("backend", "node.js found at \(nodePath)")
         resolvedNodePath = nodePath
 
         // Step 3: Verify agent-core exists
         let servePath = (config.resolvedAgentCorePath as NSString).appendingPathComponent("dist/src/serve.js")
         guard FileManager.default.fileExists(atPath: servePath) else {
             MantleLog.backend.error("agent-core not found at \(self.config.agentCorePath)")
+            MantleLog.runtime("backend", "agent-core not found at \(self.config.agentCorePath)")
             _state = .startFailed("agent-core not found at: \(config.agentCorePath)")
             return
         }
 
         // Step 4: Launch
         MantleLog.backend.info("Launching agent-core from \(self.config.agentCorePath)")
+        MantleLog.runtime("backend", "launching agent-core from \(self.config.agentCorePath)")
         await launchProcess(nodePath: nodePath)
     }
 
@@ -581,9 +591,11 @@ actor BackendProcessManager {
             if healthy {
                 restartCount = 0
                 MantleLog.backend.info("Backend ready on port \(self.config.backendPort)")
+                MantleLog.runtime("backend", "backend ready on port \(self.config.backendPort)")
                 _state = .running
             } else {
                 MantleLog.backend.error("Health check timeout after 15s")
+                MantleLog.runtime("backend", "health check timeout after 15s")
                 _state = .startFailed("Health check timeout after 15s")
                 proc.terminate()
                 self.process = nil
@@ -592,6 +604,7 @@ actor BackendProcessManager {
             }
         } catch {
             MantleLog.backend.error("Launch failed: \(error.localizedDescription)")
+            MantleLog.runtime("backend", "launch failed: \(error.localizedDescription)")
             _state = .startFailed(error.localizedDescription)
         }
     }
@@ -608,6 +621,7 @@ actor BackendProcessManager {
 
         restartCount += 1
         MantleLog.backend.warning("Backend crashed, exit code \(exitCode), attempt \(self.restartCount)/\(self.config.maxRestarts)")
+        MantleLog.runtime("backend", "backend crashed exitCode=\(exitCode) attempt \(self.restartCount)/\(self.config.maxRestarts)")
         if restartCount <= config.maxRestarts {
             _state = .restarting(attempt: restartCount)
             Task {
@@ -616,11 +630,13 @@ actor BackendProcessManager {
                     await launchProcess(nodePath: nodePath)
                 } else {
                     MantleLog.backend.error("Node path lost after crash")
+                    MantleLog.runtime("backend", "node path lost after crash")
                     _state = .crashed("Node path lost after crash")
                 }
             }
         } else {
             MantleLog.backend.error("Max restarts exceeded (\(self.restartCount))")
+            MantleLog.runtime("backend", "max restarts exceeded (\(self.restartCount))")
             _state = .crashed("Process crashed \(restartCount) times (last exit code: \(exitCode))")
         }
     }

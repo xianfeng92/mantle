@@ -130,12 +130,14 @@ actor AgentCoreClient {
 
         guard let http = response as? HTTPURLResponse else {
             MantleLog.api.error("GET /\(path) — invalid response")
+            MantleLog.runtime("api", "GET /\(path) invalid response")
             throw AgentCoreClientError.invalidResponse
         }
 
         guard (200..<300).contains(http.statusCode) else {
             let body = String(data: data, encoding: .utf8) ?? ""
             MantleLog.api.error("GET /\(path) — \(http.statusCode): \(body.prefix(200))")
+            MantleLog.runtime("api", "GET /\(path) status=\(http.statusCode) body=\(String(body.prefix(200)))")
             throw AgentCoreClientError.httpError(statusCode: http.statusCode, message: body)
         }
 
@@ -159,16 +161,19 @@ actor AgentCoreClient {
         request.timeoutInterval = timeout
 
         MantleLog.api.info("POST /\(path) (postJSON, timeout=\(Int(timeout))s)")
+        MantleLog.runtime("api", "POST /\(path) timeout=\(Int(timeout))s")
         let (data, response) = try await session.data(for: request)
 
         guard let http = response as? HTTPURLResponse else {
             MantleLog.api.error("POST /\(path) — invalid response")
+            MantleLog.runtime("api", "POST /\(path) invalid response")
             throw AgentCoreClientError.invalidResponse
         }
 
         guard (200..<300).contains(http.statusCode) else {
             let bodyStr = String(data: data, encoding: .utf8) ?? ""
             MantleLog.api.error("POST /\(path) — \(http.statusCode): \(bodyStr.prefix(200))")
+            MantleLog.runtime("api", "POST /\(path) status=\(http.statusCode) body=\(String(bodyStr.prefix(200)))")
             throw AgentCoreClientError.httpError(statusCode: http.statusCode, message: bodyStr)
         }
 
@@ -186,16 +191,19 @@ actor AgentCoreClient {
         request.timeoutInterval = 120
 
         MantleLog.api.info("POST /\(path)")
+        MantleLog.runtime("api", "POST /\(path)")
         let (data, response) = try await session.data(for: request)
 
         guard let http = response as? HTTPURLResponse else {
             MantleLog.api.error("POST /\(path) — invalid response")
+            MantleLog.runtime("api", "POST /\(path) invalid response")
             throw AgentCoreClientError.invalidResponse
         }
 
         guard (200..<300).contains(http.statusCode) else {
             let body = String(data: data, encoding: .utf8) ?? ""
             MantleLog.api.error("POST /\(path) — \(http.statusCode): \(body.prefix(200))")
+            MantleLog.runtime("api", "POST /\(path) status=\(http.statusCode) body=\(String(body.prefix(200)))")
             throw AgentCoreClientError.httpError(statusCode: http.statusCode, message: body)
         }
 

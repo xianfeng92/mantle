@@ -435,8 +435,10 @@ final class AppViewModel {
     /// Send a message in the active thread, optionally with image attachments
     func send(_ text: String, images: [String] = []) {
         MantleLog.app.info("[SEND] called with text=\"\(text.prefix(50))\" images=\(images.count)")
+        MantleLog.runtime("app", "[SEND] text=\"\(String(text.prefix(80)))\" images=\(images.count)")
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             MantleLog.app.warning("[SEND] text is empty, returning")
+            MantleLog.runtime("app", "[SEND] ignored empty input")
             return
         }
 
