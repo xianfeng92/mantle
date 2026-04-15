@@ -8,6 +8,7 @@ DerivedData/
 # Local runtime artifacts
 .superpowers/
 scripts/piper-env/
+scripts/piper-voices/*.onnx
 *.xcodeproj/project.xcworkspace/xcuserdata/
 
 # Local AI workspace files
