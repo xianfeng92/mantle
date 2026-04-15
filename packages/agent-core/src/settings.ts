@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 
 const DEFAULT_MODEL = "google/gemma-4-26b-a4b";
@@ -100,6 +101,23 @@ function parseList(raw: string | undefined): string[] {
     .filter(Boolean);
 }
 
+function inferMonorepoSourcePaths(
+  workspaceDir: string,
+  explicitPaths: string[],
+  fallbackSegments: string[],
+): string[] {
+  if (explicitPaths.length > 0) {
+    return explicitPaths;
+  }
+
+  const candidate = path.join(workspaceDir, ...fallbackSegments);
+  if (!existsSync(candidate)) {
+    return [];
+  }
+
+  return [path.relative(workspaceDir, candidate) || "."];
+}
+
 export function loadSettings(options: LoadSettingsOptions = {}): AgentCoreSettings {
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? process.env;
@@ -133,6 +151,16 @@ export function loadSettings(options: LoadSettingsOptions = {}): AgentCoreSettin
   const memoryFilePath = env.AGENT_CORE_MEMORY_FILE_PATH
     ? path.resolve(workspaceDir, env.AGENT_CORE_MEMORY_FILE_PATH)
     : path.join(dataDir, "memory.jsonl");
+  const skillSourcePaths = inferMonorepoSourcePaths(
+    workspaceDir,
+    parseList(env.AGENT_CORE_SKILL_SOURCE_PATHS),
+    ["packages", "agent-core", ".deepagents", "skills"],
+  );
+  const subagentSourcePaths = inferMonorepoSourcePaths(
+    workspaceDir,
+    parseList(env.AGENT_CORE_SUBAGENT_SOURCE_PATHS),
+    ["packages", "agent-core", ".deepagents", "subagents"],
+  );
 
   return {
     model,
@@ -159,8 +187,8 @@ export function loadSettings(options: LoadSettingsOptions = {}): AgentCoreSettin
     maxOutputChars: parseNumber(env.AGENT_CORE_MAX_OUTPUT_CHARS, 80_000),
     blockedInputTerms: parseList(env.AGENT_CORE_BLOCKED_INPUT_TERMS),
     blockedOutputTerms: parseList(env.AGENT_CORE_BLOCKED_OUTPUT_TERMS),
-    skillSourcePaths: parseList(env.AGENT_CORE_SKILL_SOURCE_PATHS),
-    subagentSourcePaths: parseList(env.AGENT_CORE_SUBAGENT_SOURCE_PATHS),
+    skillSourcePaths,
+    subagentSourcePaths,
     contextWindowTokensHint: parseNumber(
       env.AGENT_CORE_CONTEXT_WINDOW_TOKENS_HINT,
       28_000,

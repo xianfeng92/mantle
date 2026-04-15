@@ -2,6 +2,7 @@
 
 # Root-local artifacts
 .claude/
+.agent-core/
 
 # Mantle local artifacts
 apps/mantle/.superpowers/

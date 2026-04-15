@@ -95,6 +95,22 @@ enum MantlePathDefaults {
         return uniquePaths(candidates)
     }
 
+    static func relativePathIfInside(root: String, target: String) -> String? {
+        let normalizedRoot = URL(fileURLWithPath: root).standardizedFileURL.path
+        let normalizedTarget = URL(fileURLWithPath: target).standardizedFileURL.path
+        let relative = URL(fileURLWithPath: normalizedTarget).path.replacingOccurrences(of: normalizedRoot + "/", with: "")
+
+        if normalizedTarget == normalizedRoot {
+            return "."
+        }
+
+        if relative == normalizedTarget || relative.hasPrefix("/") || relative.hasPrefix("..") {
+            return nil
+        }
+
+        return relative
+    }
+
     private static func detectedAgentCorePath() -> String? {
         for basePath in searchRoots() {
             if isAgentCoreDirectory(basePath) {
@@ -525,6 +541,22 @@ actor BackendProcessManager {
         env["AGENT_CORE_WORKSPACE_DIR"] = config.resolvedWorkspacePath
         env["AGENT_CORE_VIRTUAL_MODE"] = config.virtualMode ? "true" : "false"
         env["AGENT_CORE_DATA_DIR"] = config.resolvedAgentCorePath + "/.agent-core"
+        let skillSourceAbsolute = (config.resolvedAgentCorePath as NSString)
+            .appendingPathComponent(".deepagents/skills")
+        if let relativeSkillSource = MantlePathDefaults.relativePathIfInside(
+            root: config.resolvedWorkspacePath,
+            target: skillSourceAbsolute
+        ) {
+            env["AGENT_CORE_SKILL_SOURCE_PATHS"] = relativeSkillSource
+        }
+        let subagentSourceAbsolute = (config.resolvedAgentCorePath as NSString)
+            .appendingPathComponent(".deepagents/subagents")
+        if let relativeSubagentSource = MantlePathDefaults.relativePathIfInside(
+            root: config.resolvedWorkspacePath,
+            target: subagentSourceAbsolute
+        ) {
+            env["AGENT_CORE_SUBAGENT_SOURCE_PATHS"] = relativeSubagentSource
+        }
 
         // M3: Safety guardrails — block dangerous commands
         env["AGENT_CORE_BLOCKED_INPUT_TERMS"] = [
