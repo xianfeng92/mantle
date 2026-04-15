@@ -16,6 +16,7 @@ import { buildCompactionHint, type ContextCompactionSnapshot } from "../src/comp
 import { DefaultGuardrails } from "../src/guardrails.js";
 import { AgentCoreHttpServer } from "../src/http.js";
 import { MemoryStore } from "../src/memory.js";
+import { ReturnDispatcher, ReturnStore } from "../src/returns.js";
 import { AgentCoreServiceHarness } from "../src/service.js";
 import type { TraceEvent } from "../src/tracing.js";
 import type { InvokeResultLike } from "../src/types.js";
@@ -97,6 +98,10 @@ function createRuntimeStub(
       },
     },
     memoryStore: new MemoryStore("/tmp/agent-core-test-memory-iterations.jsonl"),
+    returnStore: new ReturnStore("/tmp/agent-core-test-returns-iterations.jsonl"),
+    returnDispatcher: new ReturnDispatcher(
+      new ReturnStore("/tmp/agent-core-test-returns-iterations.jsonl"),
+    ),
     generalPurposeSubagent: {
       enabled: true,
       name: "general-purpose",

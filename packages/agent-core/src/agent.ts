@@ -57,6 +57,7 @@ import { createToolStagingMiddleware } from "./tool-staging.js";
 import { createLogger } from "./logger.js";
 import { JsonlTraceRecorder, type TraceRecorder } from "./tracing.js";
 import { MemoryStore } from "./memory.js";
+import { ReturnDispatcher, ReturnStore } from "./returns.js";
 import { createSandboxMiddleware, type SandboxConfig } from "./sandbox.js";
 import { RunSnapshotsStore } from "./run-snapshots.js";
 import type { InvokeResultLike } from "./types.js";
@@ -119,6 +120,8 @@ export interface AgentRuntime {
   guardrails: AgentCoreGuardrails;
   traceRecorder: TraceRecorder;
   memoryStore: MemoryStore;
+  returnStore: ReturnStore;
+  returnDispatcher: ReturnDispatcher;
   runSnapshots?: RunSnapshotsStore;
   generalPurposeSubagent: {
     enabled: true;
@@ -348,6 +351,8 @@ export async function createAgentRuntime(
   });
   const traceRecorder = new JsonlTraceRecorder(settings.traceLogPath);
   const memoryStore = new MemoryStore(settings.memoryFilePath);
+  const returnStore = new ReturnStore(settings.returnsLogPath);
+  const returnDispatcher = new ReturnDispatcher(returnStore);
   const runSnapshots = new RunSnapshotsStore(settings.runSnapshotsDir, settings.workspaceDir);
   const mainSkillSources = skillSources.map((source) => source.backendPath);
   log.info("runtime.loaded", { skills: skillSources.length, subagents: loadedSubagents.length, graph: settings.agentGraphVersion });
@@ -398,6 +403,8 @@ export async function createAgentRuntime(
     guardrails,
     traceRecorder,
     memoryStore,
+    returnStore,
+    returnDispatcher,
     runSnapshots,
     generalPurposeSubagent: {
       enabled: true,

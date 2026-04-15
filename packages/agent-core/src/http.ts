@@ -1102,6 +1102,139 @@ export class AgentCoreHttpServer {
         return;
       }
 
+      // ── Returns Plane ──
+      // Spec: docs/specs/2026-04-16-returns-plane-spec.md
+      if (method === "GET" && pathname === "/returns") {
+        const limitRaw = url.searchParams.get("limit");
+        const sinceRaw = url.searchParams.get("since");
+        const unackedOnly = url.searchParams.get("unackedOnly") === "true";
+        const limit = limitRaw ? Number(limitRaw) : 50;
+        const entries = await this.runtime.returnStore.list({
+          limit: Number.isFinite(limit) && limit > 0 ? limit : 50,
+          since: sinceRaw ?? undefined,
+          unackedOnly,
+        });
+        sendJson(response, 200, { entries, count: entries.length }, this.corsOrigin);
+        return;
+      }
+
+      if (method === "GET" && parts.length === 2 && parts[0] === "returns" && parts[1] !== "stream") {
+        const returnId = decodeURIComponent(parts[1] ?? "").trim();
+        if (!returnId) {
+          sendJson(response, 400, { error: "Return id is required." }, this.corsOrigin);
+          return;
+        }
+        const entry = await this.runtime.returnStore.get(returnId);
+        if (!entry) {
+          sendJson(response, 404, { error: "Return entry not found." }, this.corsOrigin);
+          return;
+        }
+        sendJson(response, 200, { entry }, this.corsOrigin);
+        return;
+      }
+
+      if (method === "POST" && pathname === "/returns") {
+        const body = (await readJsonBody(request)) as {
+          kind?: unknown;
+          title?: unknown;
+          summary?: unknown;
+          payload?: unknown;
+          tags?: unknown;
+          source?: { taskId?: unknown; traceId?: unknown };
+          announce?: { channels?: unknown; urgency?: unknown };
+        };
+        const kind = typeof body.kind === "string" ? body.kind.trim() : "";
+        const title = typeof body.title === "string" ? body.title.trim() : "";
+        if (!kind || !title) {
+          sendJson(
+            response,
+            400,
+            { error: "Fields `kind` and `title` must be non-empty strings." },
+            this.corsOrigin,
+          );
+          return;
+        }
+        const tags = Array.isArray(body.tags)
+          ? body.tags.filter((t): t is string => typeof t === "string")
+          : [];
+        let announce: { channels: string[]; urgency?: "low" | "normal" | "high" } | undefined;
+        if (body.announce && Array.isArray(body.announce.channels)) {
+          const channels = body.announce.channels.filter(
+            (c): c is string => typeof c === "string",
+          );
+          const rawUrgency = body.announce.urgency;
+          const urgency: "low" | "normal" | "high" | undefined =
+            rawUrgency === "low" || rawUrgency === "normal" || rawUrgency === "high"
+              ? rawUrgency
+              : undefined;
+          announce = urgency ? { channels, urgency } : { channels };
+        }
+        const entry = await this.runtime.returnDispatcher.dispatch({
+          kind,
+          title,
+          summary: typeof body.summary === "string" ? body.summary : undefined,
+          payload: body.payload,
+          tags,
+          source: {
+            taskId:
+              typeof body.source?.taskId === "string" ? body.source.taskId : undefined,
+            traceId:
+              typeof body.source?.traceId === "string" ? body.source.traceId : undefined,
+          },
+          announce,
+        });
+        sendJson(response, 201, { entry }, this.corsOrigin);
+        return;
+      }
+
+      if (method === "POST" && parts.length === 3 && parts[0] === "returns" && parts[2] === "ack") {
+        const returnId = decodeURIComponent(parts[1] ?? "").trim();
+        if (!returnId) {
+          sendJson(response, 400, { error: "Return id is required." }, this.corsOrigin);
+          return;
+        }
+        const updated = await this.runtime.returnStore.ack(returnId);
+        if (!updated) {
+          sendJson(response, 404, { error: "Return entry not found." }, this.corsOrigin);
+          return;
+        }
+        sendJson(response, 200, { entry: updated }, this.corsOrigin);
+        return;
+      }
+
+      if (method === "DELETE" && parts.length === 2 && parts[0] === "returns") {
+        const returnId = decodeURIComponent(parts[1] ?? "").trim();
+        if (!returnId) {
+          sendJson(response, 400, { error: "Return id is required." }, this.corsOrigin);
+          return;
+        }
+        const deleted = await this.runtime.returnStore.delete(returnId);
+        if (!deleted) {
+          sendJson(response, 404, { error: "Return entry not found." }, this.corsOrigin);
+          return;
+        }
+        sendEmpty(response, 204, this.corsOrigin);
+        return;
+      }
+
+      if (method === "GET" && pathname === "/returns/stream") {
+        sendSseHeaders(response, this.corsOrigin);
+        const unsubscribe = this.runtime.returnDispatcher.subscribe((entry) => {
+          writeSseEvent(response, "return.created", entry);
+        });
+        // Keep-alive comments every 30s so reverse proxies do not drop the idle connection.
+        const keepAlive = setInterval(() => {
+          if (!response.writableEnded && !response.destroyed) {
+            response.write(": ping\n\n");
+          }
+        }, 30_000);
+        response.on("close", () => {
+          clearInterval(keepAlive);
+          unsubscribe();
+        });
+        return;
+      }
+
       // ── Memory API ──
       if (method === "GET" && pathname === "/memory") {
         const entries = await this.runtime.memoryStore.list();

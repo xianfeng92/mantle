@@ -25,6 +25,7 @@ export interface AgentCoreSettings {
   movesLogPath: string;
   runSnapshotsDir: string;
   memoryFilePath: string;
+  returnsLogPath: string;
   httpHost: string;
   httpPort: number;
   virtualMode: boolean;
@@ -155,6 +156,9 @@ export function loadSettings(options: LoadSettingsOptions = {}): AgentCoreSettin
   const memoryFilePath = env.AGENT_CORE_MEMORY_FILE_PATH
     ? path.resolve(workspaceDir, env.AGENT_CORE_MEMORY_FILE_PATH)
     : path.join(dataDir, "memory.jsonl");
+  const returnsLogPath = env.AGENT_CORE_RETURNS_LOG_PATH
+    ? path.resolve(workspaceDir, env.AGENT_CORE_RETURNS_LOG_PATH)
+    : path.join(dataDir, "returns.jsonl");
   const skillSourcePaths = inferMonorepoSourcePaths(
     workspaceDir,
     parseList(env.AGENT_CORE_SKILL_SOURCE_PATHS),
@@ -183,6 +187,7 @@ export function loadSettings(options: LoadSettingsOptions = {}): AgentCoreSettin
     movesLogPath,
     runSnapshotsDir,
     memoryFilePath,
+    returnsLogPath,
     httpHost: env.AGENT_CORE_HTTP_HOST || "127.0.0.1",
     httpPort: parseNumber(env.AGENT_CORE_HTTP_PORT, 8787),
     virtualMode: parseBoolean(env.AGENT_CORE_VIRTUAL_MODE, true),

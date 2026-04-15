@@ -14,6 +14,7 @@ import type { ContextCompactionSnapshot } from "../src/compaction.js";
 import { DefaultGuardrails } from "../src/guardrails.js";
 import { AgentCoreHttpServer } from "../src/http.js";
 import { MemoryStore } from "../src/memory.js";
+import { ReturnDispatcher, ReturnStore } from "../src/returns.js";
 import { RunSnapshotsStore } from "../src/run-snapshots.js";
 import type { SkillMetadata, SkillSource } from "../src/skills.js";
 import type { SubagentMetadata, SubagentSource } from "../src/subagents.js";
@@ -57,6 +58,9 @@ function createRuntimeStub(
   const traceEvents: TraceEvent[] = [];
   let invokeIndex = 0;
   let stateIndex = 0;
+
+  const returnStore = new ReturnStore("/tmp/agent-core-test-returns-http.jsonl");
+  const returnDispatcher = new ReturnDispatcher(returnStore);
 
   const runtime: AgentRuntime = {
     agent: {
@@ -114,6 +118,8 @@ function createRuntimeStub(
       },
     },
     memoryStore: new MemoryStore("/tmp/agent-core-test-memory-http.jsonl"),
+    returnStore,
+    returnDispatcher,
     generalPurposeSubagent: {
       enabled: true,
       name: "general-purpose",

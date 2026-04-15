@@ -8,6 +8,7 @@ import type { AgentRuntime } from "../src/agent.js";
 import type { ContextCompactionSnapshot } from "../src/compaction.js";
 import { DefaultGuardrails, GuardrailViolationError } from "../src/guardrails.js";
 import { MemoryStore } from "../src/memory.js";
+import { ReturnDispatcher, ReturnStore } from "../src/returns.js";
 import { AgentCoreServiceHarness } from "../src/service.js";
 import type { TraceEvent } from "../src/tracing.js";
 import type { HITLRequest, HITLResponse, InvokeResultLike } from "../src/types.js";
@@ -135,6 +136,10 @@ function createRuntimeStub(
       },
     },
     memoryStore: new MemoryStore("/tmp/agent-core-test-memory-service.jsonl"),
+    returnStore: new ReturnStore("/tmp/agent-core-test-returns-service.jsonl"),
+    returnDispatcher: new ReturnDispatcher(
+      new ReturnStore("/tmp/agent-core-test-returns-service.jsonl"),
+    ),
     generalPurposeSubagent: {
       enabled: true,
       name: "general-purpose",
