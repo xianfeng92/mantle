@@ -1,30 +1,67 @@
-# Mantle Monorepo
+# Mantle
 
-`Mantle Monorepo` 是一个面向本地 AI agent 的开源工作仓库，当前包含两个可以独立运行、也可以组合使用的项目：
+Mantle is a desktop-first, local AI agent stack for macOS.
 
-- `apps/mantle`：原生 macOS 桌面客户端，负责 UI、权限、系统集成与桌面能力
-- `packages/agent-core`：本地 agent runtime，负责模型接入、工具编排、HTTP/SSE 服务和执行状态
+This repository combines:
 
-这两个项目共享同一套产品方向，但保持前后端边界清晰：
+- `apps/mantle`: a native macOS client built with SwiftUI
+- `packages/agent-core`: a local agent runtime built for tools, orchestration, and HTTP/SSE serving
 
-- `Mantle` 通过 HTTP/SSE 调用 `agent-core`
-- `agent-core` 可以被 `Mantle` 使用，也可以单独作为 CLI / HTTP 服务运行
-- 同一个仓库方便统一文档、roadmap、issues 与发布节奏
+Together they form a system where a desktop app can talk to a local agent backend, call tools, manage threads, and use native OS capabilities such as hotkeys, notifications, text selection, and desktop control.
 
-## Repository Layout
+## Why This Exists
+
+Most AI products start in the browser. Mantle starts from the desktop.
+
+The core idea is simple:
+
+- the best local agent should feel like a native app, not a chat tab
+- the desktop client should own UX, permissions, and system integration
+- the agent runtime should stay modular, scriptable, and reusable
+
+That split is why this repo is a monorepo, but not a monolith.
+
+## What's Inside
+
+### `apps/mantle`
+
+Native macOS client for:
+
+- menu bar and windowed chat
+- global hotkeys
+- notifications
+- text selection flows
+- Spotlight-oriented recall
+- desktop control bridges
+- ambient workflows such as bookmark digestion
+
+### `packages/agent-core`
+
+Local agent runtime for:
+
+- model integration
+- tool execution
+- multi-step agent loops
+- HITL interrupts and resumes
+- HTTP / SSE APIs
+- CLI and web entry points
+
+Each part can be worked on independently. Together they make up the full product.
+
+## Architecture
 
 ```text
-mantle-monorepo/
-├── apps/
-│   └── mantle/
-├── packages/
-│   └── agent-core/
-└── docs/
+User
+  -> Mantle (macOS app)
+  -> agent-core (local runtime)
+  -> local model provider / tools / desktop bridges
 ```
+
+`Mantle` talks to `agent-core` over local HTTP/SSE. `agent-core` can also run by itself for CLI or web-based workflows.
 
 ## Quick Start
 
-### 1. Start agent-core
+### 1. Start `agent-core`
 
 ```bash
 cd packages/agent-core
@@ -33,40 +70,59 @@ cp .env.example .env
 npm run serve
 ```
 
-### 2. Launch Mantle
+### 2. Launch `Mantle`
 
 ```bash
 cd apps/mantle
 open Mantle.xcodeproj
 ```
 
-默认情况下，`Mantle` 会优先尝试在 monorepo 布局中发现 `packages/agent-core`，因此本仓库结构下不需要额外配置后端路径。
+In the default monorepo layout, `Mantle` will try to discover `packages/agent-core` automatically.
 
-## Project Roles
+## Repo Layout
 
-### `apps/mantle`
-
-- Swift / SwiftUI macOS app
-- 全局热键、菜单栏、通知、语音、Spotlight、桌面控制
-- 负责把 agent 能力变成桌面交互体验
-
-### `packages/agent-core`
-
-- TypeScript local agent runtime
-- LLM adapter、tool runtime、multi-agent harness、HTTP/SSE service
-- 负责模型推理、工具调用、线程状态和执行流程
+```text
+.
+├── apps/
+│   └── mantle/
+├── packages/
+│   └── agent-core/
+└── docs/
+```
 
 ## Open Source Status
 
-当前仓库已经完成 monorepo 收敛，并已补齐基础开源文件：
+This repository is actively evolving and currently serves as the unified open source home for the Mantle desktop client and the agent-core runtime.
 
-- `LICENSE` (`Apache-2.0`)
-- `CONTRIBUTING.md`
-- `SECURITY.md`
+Current state:
 
-正式公开前仍建议继续补充截图、GIF 和架构图。
+- monorepo structure is in place
+- `Apache-2.0` license is in place
+- contribution and security docs are in place
+- project-specific READMEs still provide deeper setup details
 
-## Notes
+Still planned:
 
-- `apps/mantle` 和 `packages/agent-core` 仍然保留各自 README，方便独立阅读和开发
-- 本次仓库整理按当前工作树快照迁移，优先确保现状可继续开发，而不是保留旧仓库历史
+- public-facing screenshots and GIFs
+- architecture diagrams
+- cleaner first-run setup
+- broader test and release automation
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup and PR expectations.
+
+If you want to work on a specific area, these are especially helpful:
+
+- `apps/mantle` for native macOS UX and desktop integration
+- `packages/agent-core` for runtime, tool execution, and model orchestration
+
+## Security
+
+See [SECURITY.md](./SECURITY.md).
+
+This project includes local agent execution, desktop permissions, and localhost bridges, so responsible disclosure is appreciated.
+
+## License
+
+Apache-2.0. See [LICENSE](./LICENSE).
