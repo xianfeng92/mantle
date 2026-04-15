@@ -41,6 +41,7 @@ Local agent runtime for:
 
 - model integration
 - tool execution
+- run checkpoints, compare, and restore
 - multi-step agent loops
 - HITL interrupts and resumes
 - HTTP / SSE APIs
@@ -68,6 +69,12 @@ cd packages/agent-core
 npm install
 cp .env.example .env
 npm run serve
+```
+
+Before wiring the UI, sanity-check the local runtime:
+
+```bash
+curl http://127.0.0.1:8787/doctor
 ```
 
 ### 2. Launch `Mantle`

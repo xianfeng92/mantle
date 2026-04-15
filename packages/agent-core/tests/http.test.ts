@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createServer as createNodeServer } from "node:http";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
@@ -10,6 +14,7 @@ import type { ContextCompactionSnapshot } from "../src/compaction.js";
 import { DefaultGuardrails } from "../src/guardrails.js";
 import { AgentCoreHttpServer } from "../src/http.js";
 import { MemoryStore } from "../src/memory.js";
+import { RunSnapshotsStore } from "../src/run-snapshots.js";
 import type { SkillMetadata, SkillSource } from "../src/skills.js";
 import type { SubagentMetadata, SubagentSource } from "../src/subagents.js";
 import type { TraceEvent } from "../src/tracing.js";
@@ -175,6 +180,188 @@ test("HTTP health endpoint responds with ok", async () => {
     assert.equal(body.promptProfile, "compact");
   } finally {
     await server.close();
+  }
+});
+
+test("HTTP doctor endpoint returns preflight checks", async () => {
+  const modelProvider = createNodeServer((req, res) => {
+    if (req.url === "/v1/models") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ data: [{ id: "google/gemma-4-26b-a4b" }] }));
+      return;
+    }
+    res.writeHead(404).end();
+  });
+  await new Promise<void>((resolve) => modelProvider.listen(0, "127.0.0.1", () => resolve()));
+  const providerAddress = modelProvider.address();
+  assert.ok(providerAddress && typeof providerAddress === "object");
+
+  const { runtime } = createRuntimeStub(
+    [],
+    [],
+    [],
+    [
+      {
+        name: "demo-skill",
+        description: "Demo skill description",
+        path: "/workspace/.deepagents/skills/demo-skill/SKILL.md",
+        sourcePath: "/.deepagents/skills",
+      },
+    ],
+  );
+  runtime.settings = {
+    ...runtime.settings,
+    model: "google/gemma-4-26b-a4b",
+    apiKey: "lm-studio",
+    baseUrl: `http://127.0.0.1:${providerAddress.port}/v1`,
+    workspaceDir: process.cwd(),
+    workspaceMode: "workspace",
+    dataDir: process.cwd(),
+    memoryFilePath: `${process.cwd()}/.agent-core/test-memory.jsonl`,
+    sandboxLevel: 1,
+  } as AgentRuntime["settings"];
+
+  const { server, baseUrl } = await startServer(runtime);
+
+  try {
+    const response = await fetch(`${baseUrl}/doctor`);
+    const body = (await response.json()) as {
+      ok: boolean;
+      summary: { overallStatus: string };
+      runtime: { dataDir: string; memoryFilePath: string };
+      checks: Array<{ id: string; status: string }>;
+    };
+
+    assert.equal(response.status, 200);
+    assert.equal(body.ok, true);
+    assert.equal(body.summary.overallStatus, "warn");
+    assert.equal(body.runtime.dataDir, process.cwd());
+    assert.equal(body.runtime.memoryFilePath, `${process.cwd()}/.agent-core/test-memory.jsonl`);
+    assert.ok(body.checks.some((check) => check.id === "model-provider" && check.status === "pass"));
+    assert.ok(body.checks.some((check) => check.id === "sandbox" && check.status === "pass"));
+  } finally {
+    await server.close();
+    await new Promise<void>((resolve, reject) =>
+      modelProvider.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
+test("HTTP memory injection endpoint returns the last injection snapshot for a thread", async () => {
+  const { runtime } = createRuntimeStub([
+    {
+      messages: [new HumanMessage("hello"), new AIMessage("world")],
+    },
+  ]);
+  await runtime.memoryStore.clear();
+  const memoryContent = `The repo uses npm workspaces. ${Date.now()}`;
+  await runtime.memoryStore.add({
+    type: "project",
+    content: memoryContent,
+    source: {
+      threadId: "seed-thread",
+      traceId: "seed-trace",
+      createdAt: new Date().toISOString(),
+    },
+    tags: ["repo"],
+  });
+  const { server, baseUrl } = await startServer(runtime);
+
+  try {
+    await fetch(`${baseUrl}/runs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        threadId: "thread-memory-injection",
+        input: "hello",
+      }),
+    });
+
+    const response = await fetch(
+      `${baseUrl}/memory/injection?threadId=thread-memory-injection`,
+    );
+    const body = (await response.json()) as {
+      threadId: string;
+      snapshot: { skipped: boolean; entries: Array<{ content: string }> } | null;
+    };
+
+    assert.equal(response.status, 200);
+    assert.equal(body.threadId, "thread-memory-injection");
+    assert.equal(body.snapshot?.skipped, false);
+    assert.equal(body.snapshot?.entries[0]?.content, memoryContent);
+  } finally {
+    await server.close();
+  }
+});
+
+test("HTTP run snapshot endpoints list and preview restores", async () => {
+  const workspaceDir = await mkdtemp(path.join(os.tmpdir(), "agent-core-http-snapshots-"));
+  const snapshotsDir = path.join(workspaceDir, ".agent-core", "run-snapshots");
+  const targetPath = path.join(workspaceDir, "note.txt");
+  await writeFile(targetPath, "before\n", "utf8");
+
+  try {
+    const { runtime } = createRuntimeStub([]);
+    runtime.settings = {
+      ...runtime.settings,
+      workspaceDir,
+      runSnapshotsDir: snapshotsDir,
+    } as AgentRuntime["settings"];
+    runtime.runSnapshots = new RunSnapshotsStore(snapshotsDir, workspaceDir);
+
+    await runtime.runSnapshots.startRun({
+      traceId: "trace-http",
+      threadId: "thread-http",
+      mode: "run",
+      inputPreview: "Update note.txt",
+    });
+    await runtime.runSnapshots.beginAction({
+      traceId: "trace-http",
+      threadId: "thread-http",
+      toolName: "write_file",
+      touchedPaths: ["note.txt"],
+    });
+    await writeFile(targetPath, "after\n", "utf8");
+    await runtime.runSnapshots.completeAction({
+      traceId: "trace-http",
+      threadId: "thread-http",
+      toolName: "write_file",
+      touchedPaths: ["note.txt"],
+      status: "completed",
+      summary: "Write note.txt",
+    });
+    await runtime.runSnapshots.finalizeRun("trace-http", "completed");
+
+    const { server, baseUrl } = await startServer(runtime);
+    try {
+      const listResponse = await fetch(`${baseUrl}/run-snapshots?limit=5`);
+      const listBody = (await listResponse.json()) as {
+        runs: Array<{ traceId: string; summary: { changedFiles: number } }>;
+      };
+      assert.equal(listResponse.status, 200);
+      assert.equal(listBody.runs.length, 1);
+      assert.equal(listBody.runs[0]?.traceId, "trace-http");
+      assert.equal(listBody.runs[0]?.summary.changedFiles, 1);
+
+      const previewResponse = await fetch(`${baseUrl}/run-snapshots/trace-http/restore`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dryRun: true }),
+      });
+      const previewBody = (await previewResponse.json()) as {
+        ok: boolean;
+        dryRun: boolean;
+        conflicts: string[];
+      };
+      assert.equal(previewResponse.status, 200);
+      assert.equal(previewBody.ok, true);
+      assert.equal(previewBody.dryRun, true);
+      assert.deepEqual(previewBody.conflicts, []);
+    } finally {
+      await server.close();
+    }
+  } finally {
+    await rm(workspaceDir, { recursive: true, force: true });
   }
 });
 
@@ -364,7 +551,9 @@ test("HTTP run endpoint returns interrupt payload when approval is required", as
     assert.equal(response.status, 200);
     assert.match(body.traceId, /^[0-9a-f-]{36}$/i);
     assert.equal(body.status, "interrupted");
-    assert.deepEqual(body.interruptRequest, interruptRequest);
+    assert.equal(body.interruptRequest?.actionRequests[0]?.name, "execute");
+    assert.deepEqual(body.interruptRequest?.actionRequests[0]?.args, { command: "pwd" });
+    assert.equal(body.interruptRequest?.actionRequests[0]?.risk?.level, "medium");
   } finally {
     await server.close();
   }

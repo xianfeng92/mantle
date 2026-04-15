@@ -18,6 +18,13 @@ struct ApprovalDetailSheet: View {
     }
 
     private var summaryLine: String {
+        let highestRisk = request.actionRequests.compactMap(\.risk).max { lhs, rhs in
+            riskRank(lhs.level) < riskRank(rhs.level)
+        }
+        if let highestRisk {
+            return highestRisk.estimatedImpact ?? highestRisk.summary
+        }
+
         if LedgerPresenter.likelySupportsRollback(request) {
             return "File-oriented actions stay reviewable and rollback remains available after execution."
         }
@@ -98,6 +105,16 @@ struct ApprovalDetailSheet: View {
                         title: "Rollback Available",
                         tone: .success,
                         systemImage: "arrow.uturn.backward.circle"
+                    )
+                }
+
+                if let highestRisk = request.actionRequests.compactMap(\.risk).max(by: {
+                    riskRank($0.level) < riskRank($1.level)
+                }) {
+                    LedgerStatusChip(
+                        title: LedgerPresenter.title(for: highestRisk.level),
+                        tone: LedgerPresenter.tone(for: highestRisk.level),
+                        systemImage: LedgerPresenter.symbol(for: highestRisk.level)
                     )
                 }
             }
@@ -218,6 +235,20 @@ struct ApprovalDetailSheet: View {
                 LedgerInfoRow(label: "Target", value: target)
             }
 
+            if let risk = action.risk {
+                LedgerInfoRow(
+                    label: "Risk",
+                    value: "\(LedgerPresenter.title(for: risk.level)) • \(risk.summary)",
+                    tone: LedgerPresenter.tone(for: risk.level)
+                )
+                if let impact = risk.estimatedImpact, !impact.isEmpty {
+                    LedgerInfoRow(label: "Impact", value: impact)
+                }
+                if let paths = risk.touchedPaths, !paths.isEmpty {
+                    LedgerInfoRow(label: "Paths", value: paths.joined(separator: ", "))
+                }
+            }
+
             LedgerInfoRow(label: "Policy", value: reviewPolicyText(allowed))
 
             if decisions[index].isEditing {
@@ -325,6 +356,17 @@ struct ApprovalDetailSheet: View {
     private func reviewPolicyText(_ allowed: [DecisionType]) -> String {
         let titles = allowed.map(LedgerPresenter.decisionTitle(for:))
         return "Allowed decisions: \(titles.joined(separator: ", "))"
+    }
+
+    private func riskRank(_ level: ActionRiskLevel) -> Int {
+        switch level {
+        case .low:
+            return 0
+        case .medium:
+            return 1
+        case .high:
+            return 2
+        }
     }
 
     private func isValidJSON(_ text: String) -> Bool {

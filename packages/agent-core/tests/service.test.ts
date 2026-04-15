@@ -195,7 +195,9 @@ test("runOnce returns interrupted result when no handler is supplied", async () 
 
   assert.equal(result.status, "interrupted");
   assert.match(result.traceId, /^[0-9a-f-]{36}$/i);
-  assert.deepEqual(result.interruptRequest, interruptRequest);
+  assert.equal(result.interruptRequest?.actionRequests[0]?.name, "execute");
+  assert.deepEqual(result.interruptRequest?.actionRequests[0]?.args, { command: "pwd" });
+  assert.equal(result.interruptRequest?.actionRequests[0]?.risk?.level, "medium");
   assert.equal(result.interruptCount, 1);
 });
 

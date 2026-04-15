@@ -33,7 +33,7 @@ function resolveTrackedPath(filePath: string, workspaceDir?: string): string {
 export async function recordMove(
   entry: Omit<MoveRecord, "id">,
   movesLogPath: string,
-): Promise<void> {
+): Promise<MoveRecord> {
   const record: MoveRecord = { id: randomUUID(), ...entry };
   try {
     await mkdir(path.dirname(movesLogPath), { recursive: true });
@@ -41,6 +41,7 @@ export async function recordMove(
   } catch {
     // Non-critical — don't break the main flow
   }
+  return record;
 }
 
 /**

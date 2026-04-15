@@ -235,21 +235,28 @@ final class SpeechService: NSObject {
     private let speechRecognizer: SFSpeechRecognizer?
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
-    nonisolated(unsafe) private let audioEngine = AVAudioEngine()
+    @ObservationIgnored
+    private let audioEngineHandle = AudioEngineHandle()
+
+    private var audioEngine: AVAudioEngine { audioEngineHandle.engine }
 
     /// Serial queue for all AVAudioEngine operations (must not run on main thread)
+    @ObservationIgnored
     private nonisolated let audioQueue = DispatchQueue(label: "mantle.speech.audio")
 
     // MARK: - Private (VAD)
 
-    private nonisolated(unsafe) var vad = EnergyVAD()
+    @ObservationIgnored
+    private let vad = VADState()
     /// Whether the continuous mic is running for VAD mode
     private var vadMicActive: Bool = false
     /// Thread-safe holder so the audio tap always appends to the current ASR request.
-    private nonisolated(unsafe) let requestHolder = ASRRequestHolder()
+    @ObservationIgnored
+    private let requestHolder = ASRRequestHolder()
 
     // MARK: - Private (TTS)
 
+    @ObservationIgnored
     nonisolated(unsafe) private let synthesizer = AVSpeechSynthesizer()
     private var ttsDelegate: TTSDelegate?
 
@@ -367,8 +374,9 @@ final class SpeechService: NSObject {
         requestHolder.request = nil
         recognitionTask?.cancel()
         recognitionTask = nil
-        let engine = audioEngine
+        let audioEngineHandle = self.audioEngineHandle
         audioQueue.async {
+            let engine = audioEngineHandle.engine
             if engine.isRunning {
                 engine.stop()
                 engine.inputNode.removeTap(onBus: 0)
@@ -434,8 +442,9 @@ final class SpeechService: NSObject {
         requestHolder.request = nil
         recognitionTask?.cancel()
         recognitionTask = nil
-        let engine = audioEngine
+        let audioEngineHandle = self.audioEngineHandle
         audioQueue.async {
+            let engine = audioEngineHandle.engine
             if engine.isRunning {
                 engine.stop()
                 engine.inputNode.removeTap(onBus: 0)
@@ -481,11 +490,12 @@ final class SpeechService: NSObject {
         self.requestHolder.request = request
         vad.reset()
 
-        let engine = audioEngine
+        let audioEngineHandle = self.audioEngineHandle
         let holder = requestHolder
 
         let startResult: Result<Void, Error> = await withCheckedContinuation { cont in
             audioQueue.async {
+                let engine = audioEngineHandle.engine
                 let inputNode = engine.inputNode
                 let fmt = inputNode.outputFormat(forBus: 0)
                 guard fmt.sampleRate > 0, fmt.channelCount > 0 else {
@@ -597,8 +607,9 @@ final class SpeechService: NSObject {
                 onVADResult?(finalText)
             } else {
                 // Manual mode: send + stop mic completely
-                let engine = audioEngine
+                let audioEngineHandle = self.audioEngineHandle
                 audioQueue.async {
+                    let engine = audioEngineHandle.engine
                     if engine.isRunning {
                         engine.stop()
                         engine.inputNode.removeTap(onBus: 0)
@@ -619,8 +630,9 @@ final class SpeechService: NSObject {
                 restartASRForNextUtterance()
             } else {
                 // Manual mode: nothing heard, just go idle
-                let engine = audioEngine
+                let audioEngineHandle = self.audioEngineHandle
                 audioQueue.async {
+                    let engine = audioEngineHandle.engine
                     if engine.isRunning {
                         engine.stop()
                         engine.inputNode.removeTap(onBus: 0)
@@ -1099,6 +1111,18 @@ final class SpeechService: NSObject {
             (0x4E00...0x9FFF).contains(scalar.value) || // CJK Unified
             (0x3400...0x4DBF).contains(scalar.value)    // CJK Extension A
         }
+    }
+}
+
+private final class AudioEngineHandle: @unchecked Sendable {
+    let engine = AVAudioEngine()
+}
+
+private final class VADState: @unchecked Sendable {
+    private var current = EnergyVAD()
+
+    func reset() {
+        current.reset()
     }
 }
 

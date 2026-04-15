@@ -165,6 +165,318 @@ struct ContextInspectorCard: View {
     }
 }
 
+struct PreflightStatusCard: View {
+    let backendStatus: AppViewModel.BackendStatus
+    let processState: ProcessState
+    let doctor: DoctorResponse?
+    let permissionStatus: PermissionManager.PermissionStatus
+    let onQuickFix: (DoctorCheck) -> AppViewModel.PreflightQuickAction?
+    let onRestartBackend: () -> Void
+    let onCopyReport: () -> Void
+    let onOpenAccessibilitySettings: () -> Void
+    let onOpenScreenCaptureSettings: () -> Void
+
+    private var attentionChecks: [DoctorCheck] {
+        Array((doctor?.attentionChecks ?? []).prefix(3))
+    }
+
+    private var summaryText: String {
+        if !permissionStatus.accessibility {
+            return "Accessibility permission is still off, so Mantle can inspect context but cannot reliably drive desktop actions."
+        }
+
+        if let doctor {
+            switch doctor.summary.overallStatus {
+            case .pass:
+                return "Backend checks are healthy. If something still feels off, copy the report and inspect the details."
+            case .warn:
+                return "Mantle is usable, but one or more runtime checks need attention before this becomes a daily-driver setup."
+            case .fail:
+                return "Mantle found a blocking runtime issue. Fix the failing checks below before trusting file or desktop actions."
+            }
+        }
+
+        switch backendStatus {
+        case .disconnected:
+            return "agent-core is currently disconnected. Start or restart the backend to continue."
+        case .connecting:
+            return "Mantle is still checking the local backend and model provider."
+        case .connected:
+            return "Connected."
+        case .error(let message):
+            return message
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Preflight")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Design.accentContext)
+
+                    Text("Check backend, permissions, and local runtime health before you trust a run.")
+                        .font(.headline)
+                        .foregroundStyle(Design.textPrimary)
+
+                    Text(summaryText)
+                        .font(.callout)
+                        .foregroundStyle(Design.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                VStack(alignment: .trailing, spacing: 6) {
+                    statusChip(title: backendTitle, tone: backendTone, symbol: backendSymbol)
+
+                    if let doctor {
+                        statusChip(
+                            title: "Doctor \(doctor.summary.overallStatus.rawValue.capitalized)",
+                            tone: tone(for: doctor.summary.overallStatus),
+                            symbol: symbol(for: doctor.summary.overallStatus)
+                        )
+                    }
+
+                    if !permissionStatus.accessibility {
+                        statusChip(title: "Accessibility Needed", tone: .warn, symbol: "hand.raised")
+                    }
+                }
+            }
+
+            if !attentionChecks.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(attentionChecks) { check in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: symbol(for: check.status))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(color(for: check.status))
+                                .frame(width: 16)
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(check.title)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(Design.textPrimary)
+                                Text(check.summary)
+                                    .font(.caption)
+                                    .foregroundStyle(Design.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                if let fixHint = check.fixHint, !fixHint.isEmpty {
+                                    Text("Fix: \(fixHint)")
+                                        .font(.caption2)
+                                        .foregroundStyle(color(for: check.status))
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+
+                                if let quickFix = onQuickFix(check) {
+                                    Button {
+                                        quickFix.perform()
+                                    } label: {
+                                        Label(quickFix.title, systemImage: quickFix.systemImage)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
+                                }
+                            }
+                        }
+                        .padding(10)
+                        .background(Design.surfaceMuted, in: RoundedRectangle(cornerRadius: Design.cornerRadius))
+                    }
+                }
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    onRestartBackend()
+                } label: {
+                    Label("Restart Backend", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Design.accent)
+
+                SettingsLink {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    onCopyReport()
+                } label: {
+                    Label("Copy Report", systemImage: "doc.on.doc")
+                }
+                .buttonStyle(.bordered)
+
+                Spacer(minLength: 0)
+            }
+
+            if !permissionStatus.accessibility || !permissionStatus.screenCapture {
+                HStack(spacing: 10) {
+                    if !permissionStatus.accessibility {
+                        Button("Open Accessibility") {
+                            onOpenAccessibilitySettings()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    if !permissionStatus.screenCapture {
+                        Button("Open Screen Capture") {
+                            onOpenScreenCaptureSettings()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
+        }
+        .padding(Design.panelPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Design.surfaceElevated, in: RoundedRectangle(cornerRadius: Design.panelCornerRadius))
+    }
+
+    private var backendTitle: String {
+        switch backendStatus {
+        case .connected:
+            return "Backend Connected"
+        case .connecting:
+            return "Backend Checking"
+        case .disconnected:
+            return "Backend Offline"
+        case .error:
+            return "Backend Error"
+        }
+    }
+
+    private var backendTone: DoctorCheckStatus {
+        switch backendStatus {
+        case .connected:
+            return .pass
+        case .connecting:
+            return .warn
+        case .disconnected, .error:
+            return .fail
+        }
+    }
+
+    private var backendSymbol: String {
+        switch backendStatus {
+        case .connected:
+            return "checkmark.circle"
+        case .connecting:
+            return "clock.badge.questionmark"
+        case .disconnected, .error:
+            return "xmark.octagon"
+        }
+    }
+
+    private func statusChip(title: String, tone: DoctorCheckStatus, symbol: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbol)
+                .font(.caption2)
+            Text(title)
+                .font(.caption2.weight(.semibold))
+        }
+        .foregroundStyle(color(for: tone))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(color(for: tone).opacity(0.10), in: Capsule())
+    }
+
+    private func tone(for status: DoctorCheckStatus) -> DoctorCheckStatus {
+        status
+    }
+
+    private func symbol(for status: DoctorCheckStatus) -> String {
+        switch status {
+        case .pass:
+            return "checkmark.circle"
+        case .warn:
+            return "exclamationmark.triangle"
+        case .fail:
+            return "xmark.octagon"
+        }
+    }
+
+    private func color(for status: DoctorCheckStatus) -> Color {
+        switch status {
+        case .pass:
+            return Design.stateSuccess
+        case .warn:
+            return Design.stateWarning
+        case .fail:
+            return Design.stateDanger
+        }
+    }
+}
+
+struct MemoryInjectionCard: View {
+    let snapshot: MemoryInjectionSnapshot?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Memory Injection")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Design.accentContext)
+                Spacer()
+                if let snapshot {
+                    Text(snapshot.skipped ? "Skipped" : "Injected")
+                        .font(.caption2)
+                        .foregroundStyle(snapshot.skipped ? Design.textSecondary : Design.stateSuccess)
+                }
+            }
+
+            if let snapshot {
+                Text(summary(for: snapshot))
+                    .font(.callout)
+                    .foregroundStyle(Design.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if !snapshot.entries.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(snapshot.entries.prefix(3))) { entry in
+                            HStack(alignment: .top, spacing: 8) {
+                                Text(entry.type.uppercased())
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(Design.accent)
+                                    .frame(width: 64, alignment: .leading)
+
+                                Text(entry.content)
+                                    .font(.caption)
+                                    .foregroundStyle(Design.textSecondary)
+                                    .lineLimit(2)
+                            }
+                        }
+                    }
+                    .padding(10)
+                    .background(Design.surfaceMuted, in: RoundedRectangle(cornerRadius: Design.cornerRadius))
+                }
+            } else {
+                Text("No memory injection details yet for this thread.")
+                    .font(.callout)
+                    .foregroundStyle(Design.textSecondary)
+            }
+        }
+        .padding(Design.panelPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Design.surfaceElevated, in: RoundedRectangle(cornerRadius: Design.cardCornerRadius))
+    }
+
+    private func summary(for snapshot: MemoryInjectionSnapshot) -> String {
+        if snapshot.skipped {
+            switch snapshot.reason {
+            case "budget_zero":
+                return "Context budget is currently tight, so Mantle skipped cross-session memory injection for this turn."
+            case "no_entries":
+                return "There were no saved memories worth injecting for this turn."
+            default:
+                return "Memory injection was skipped for this turn."
+            }
+        }
+
+        return "Injected \(snapshot.entries.count) memory item(s) using \(snapshot.estimatedTokens) estimated tokens out of a \(snapshot.budgetTokens)-token budget."
+    }
+}
+
 private struct ContextInspectorMetric: View {
     let title: String
     let systemImage: String

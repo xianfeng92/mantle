@@ -189,12 +189,13 @@ enum LedgerPresenter {
         let argsObject = action.args.mapValues(\.value)
 
         let summary = firstMeaningful(
+            action.risk?.summary,
             action.description,
             commandSummary(from: argsObject),
             compactPlainText(renderJSONObject(argsObject))
         )
 
-        let target = primaryTarget(from: argsObject)
+        let target = action.risk?.touchedPaths?.first ?? primaryTarget(from: argsObject)
 
         return LedgerSummary(
             title: toolDisplayName(action.name),
@@ -251,6 +252,39 @@ enum LedgerPresenter {
                 || flattened.contains("move ")
                 || flattened.contains("destpath")
                 || flattened.contains("sourcepath")
+        }
+    }
+
+    static func tone(for risk: ActionRiskLevel) -> LedgerTone {
+        switch risk {
+        case .low:
+            return .info
+        case .medium:
+            return .warning
+        case .high:
+            return .danger
+        }
+    }
+
+    static func title(for risk: ActionRiskLevel) -> String {
+        switch risk {
+        case .low:
+            return "Low Risk"
+        case .medium:
+            return "Medium Risk"
+        case .high:
+            return "High Risk"
+        }
+    }
+
+    static func symbol(for risk: ActionRiskLevel) -> String {
+        switch risk {
+        case .low:
+            return "checkmark.shield"
+        case .medium:
+            return "exclamationmark.shield"
+        case .high:
+            return "flame.fill"
         }
     }
 

@@ -6,6 +6,7 @@ import type { StreamEvent } from "@langchain/core/types/stream";
 import { Command } from "@langchain/langgraph";
 
 import type { AgentRuntime } from "./agent.js";
+import { enrichHitlRequest } from "./approval-risk.js";
 import {
   buildCompactionHint,
   extractContextCompactionSnapshot,
@@ -20,7 +21,13 @@ import {
   patchMessageWithFallbackToolCalls,
 } from "./tool-call-fallback.js";
 import { createLogger } from "./logger.js";
-import { MemoryStore, estimateTokens, extractAndWriteMemories } from "./memory.js";
+import {
+  MemoryStore,
+  estimateTokens,
+  extractAndWriteMemories,
+  type MemoryEntry,
+} from "./memory.js";
+import type { RunSnapshotStatus } from "./run-snapshots.js";
 import type {
   ActionRequest,
   HITLRequest,
@@ -230,6 +237,30 @@ function truncateText(text: string, maxLength = 240): string {
   return `${text.slice(0, maxLength)}...[truncated]`;
 }
 
+function buildRunSnapshotPreview(input: UserInput): string | undefined {
+  const text = extractTextFromInput(input).trim();
+  return text ? truncateText(text, 280) : undefined;
+}
+
+function buildResumeSnapshotPreview(resume: HITLResponse): string | undefined {
+  const decisionCount = Array.isArray(resume.decisions) ? resume.decisions.length : 0;
+  if (decisionCount === 0) {
+    return "Resume with no explicit approval decisions";
+  }
+  const summary = resume.decisions
+    .slice(0, 3)
+    .map((decision) => {
+      if (decision.type === "edit") {
+        return `edit:${decision.editedAction.name}`;
+      }
+      return decision.type;
+    })
+    .join(", ");
+  return decisionCount > 3
+    ? `Resume ${decisionCount} decisions (${summary}, ...)`
+    : `Resume ${decisionCount} decisions (${summary})`;
+}
+
 function extractInterruptsFromTasks(
   tasks: Array<{ interrupts?: Array<{ value?: unknown }>; [key: string]: unknown }> | undefined,
 ): Array<InterruptEnvelope> {
@@ -327,10 +358,21 @@ export interface TokenUsage {
   totalTokens: number;
 }
 
+export interface MemoryInjectionSnapshot {
+  threadId: string;
+  updatedAt: string;
+  budgetTokens: number;
+  skipped: boolean;
+  reason?: "budget_zero" | "no_entries" | "injected";
+  estimatedTokens: number;
+  entries: MemoryEntry[];
+}
+
 export class AgentCoreServiceHarness {
   private readonly runtime: AgentRuntime;
   private readonly emittedMessageCountByThread = new Map<string, number>();
   private readonly lastTokenUsageByThread = new Map<string, TokenUsage>();
+  private readonly lastMemoryInjectionByThread = new Map<string, MemoryInjectionSnapshot>();
 
   constructor(runtime: AgentRuntime) {
     this.runtime = runtime;
@@ -346,47 +388,59 @@ export class AgentCoreServiceHarness {
     return this.runtime.settings.contextWindowTokensHint;
   }
 
+  getLastMemoryInjection(threadId: string): MemoryInjectionSnapshot | undefined {
+    return this.lastMemoryInjectionByThread.get(threadId);
+  }
+
   async runOnce(options: RunOnceOptions): Promise<ServiceRunResult> {
+    const traceId = options.traceId ?? randomUUID();
     const messages = await this.buildInputMessages(options.threadId, options.input, options.context);
     return this.executeLoop(
-      options.traceId ?? randomUUID(),
+      traceId,
       "run",
       options.threadId,
       { messages },
       options.onInterrupt,
       options.maxInterrupts ?? 32,
+      buildRunSnapshotPreview(options.input),
     );
   }
 
   async resumeOnce(options: ResumeOnceOptions): Promise<ServiceRunResult> {
+    const traceId = options.traceId ?? randomUUID();
     return this.executeLoop(
-      options.traceId ?? randomUUID(),
+      traceId,
       "resume",
       options.threadId,
       new Command({ resume: normalizeHitlResponse(options.resume) }),
       options.onInterrupt,
       options.maxInterrupts ?? 32,
+      buildResumeSnapshotPreview(options.resume),
     );
   }
 
   async *streamRun(options: StreamRunOptions): AsyncGenerator<ServiceStreamEvent> {
+    const traceId = options.traceId ?? randomUUID();
     const messages = await this.buildInputMessages(options.threadId, options.input, options.context);
     yield* this.executeStream(
-      options.traceId ?? randomUUID(),
+      traceId,
       options.threadId,
       "run",
       { messages },
       options.signal,
+      buildRunSnapshotPreview(options.input),
     );
   }
 
   async *streamResume(options: StreamResumeOptions): AsyncGenerator<ServiceStreamEvent> {
+    const traceId = options.traceId ?? randomUUID();
     yield* this.executeStream(
-      options.traceId ?? randomUUID(),
+      traceId,
       options.threadId,
       "resume",
       new Command({ resume: normalizeHitlResponse(options.resume) }),
       options.signal,
+      buildResumeSnapshotPreview(options.resume),
     );
   }
 
@@ -446,15 +500,44 @@ export class AgentCoreServiceHarness {
       const memories = await this.runtime.memoryStore.selectForInjection(memoryBudget);
       const memoryBlock = MemoryStore.formatForInjection(memories);
       if (memoryBlock) {
+        const estimatedTokens = estimateTokens(memoryBlock);
         enrichedText = `<memory>\n${memoryBlock}\n</memory>\n\n${enrichedText}`;
+        this.lastMemoryInjectionByThread.set(threadId, {
+          threadId,
+          updatedAt: new Date().toISOString(),
+          budgetTokens: memoryBudget,
+          skipped: false,
+          reason: "injected",
+          estimatedTokens,
+          entries: memories,
+        });
         log.debug("memory.injected", {
           threadId,
           count: memories.length,
           budgetTokens: memoryBudget,
-          estimatedTokens: estimateTokens(memoryBlock),
+          estimatedTokens,
+        });
+      } else {
+        this.lastMemoryInjectionByThread.set(threadId, {
+          threadId,
+          updatedAt: new Date().toISOString(),
+          budgetTokens: memoryBudget,
+          skipped: true,
+          reason: "no_entries",
+          estimatedTokens: 0,
+          entries: [],
         });
       }
     } else {
+      this.lastMemoryInjectionByThread.set(threadId, {
+        threadId,
+        updatedAt: new Date().toISOString(),
+        budgetTokens: memoryBudget,
+        skipped: true,
+        reason: "budget_zero",
+        estimatedTokens: 0,
+        entries: [],
+      });
       log.debug("memory.skipped", { threadId, budgetTokens: memoryBudget });
     }
 
@@ -532,6 +615,7 @@ export class AgentCoreServiceHarness {
     initialRequest: Command | { messages: Array<{ role: string; content: string | ContentBlock[] }> },
     onInterrupt: ServiceInterruptHandler | undefined,
     maxInterrupts: number,
+    inputPreview?: string,
   ): Promise<ServiceRunResult> {
     let request = initialRequest;
     let interruptCount = 0;
@@ -540,6 +624,8 @@ export class AgentCoreServiceHarness {
     let turnMessages: BaseMessage[] = [];
     let contextCompaction = await this.getThreadContextCompaction(threadId);
     const startedAt = Date.now();
+
+    await this.startRunSnapshot(traceId, threadId, mode, inputPreview);
 
     await this.runtime.traceRecorder.record({
       timestamp: new Date(startedAt).toISOString(),
@@ -696,7 +782,10 @@ export class AgentCoreServiceHarness {
           contextCompaction,
         );
 
-        const interruptRequest = extractInterruptRequest(result);
+        const rawInterruptRequest = extractInterruptRequest(result);
+        const interruptRequest = rawInterruptRequest
+          ? enrichHitlRequest(rawInterruptRequest)
+          : null;
         if (!interruptRequest) {
           const completed: ServiceRunResult = {
             traceId,
@@ -728,7 +817,7 @@ export class AgentCoreServiceHarness {
 
           // Fire-and-forget: extract memorable facts from user messages
           this.extractMemoriesAsync(traceId, threadId, turnMessages);
-
+          await this.finalizeRunSnapshot(traceId, "completed");
           return completed;
         }
 
@@ -777,6 +866,7 @@ export class AgentCoreServiceHarness {
           });
 
           this.extractMemoriesAsync(traceId, threadId, turnMessages);
+          await this.finalizeRunSnapshot(traceId, "completed");
           return completed;
         }
 
@@ -808,6 +898,7 @@ export class AgentCoreServiceHarness {
               actionRequestCount: interruptRequest.actionRequests.length,
             },
           });
+          await this.finalizeRunSnapshot(traceId, "interrupted");
           return interrupted;
         }
 
@@ -842,6 +933,7 @@ export class AgentCoreServiceHarness {
               actionRequestCount: interruptRequest.actionRequests.length,
             },
           });
+          await this.finalizeRunSnapshot(traceId, "interrupted");
           return interrupted;
         }
 
@@ -863,6 +955,7 @@ export class AgentCoreServiceHarness {
           error: error instanceof Error ? error.message : String(error),
         },
       });
+      await this.finalizeRunSnapshot(traceId, "failed");
       throw error;
     }
   }
@@ -888,6 +981,7 @@ export class AgentCoreServiceHarness {
     mode: "run" | "resume",
     input: Command | { messages: Array<{ role: string; content: string | ContentBlock[] }> },
     signal?: AbortSignal,
+    inputPreview?: string,
   ): AsyncGenerator<ServiceStreamEvent> {
     if (typeof this.runtime.agent.streamEvents !== "function") {
       throw new Error("Runtime agent does not support streamEvents().");
@@ -896,6 +990,8 @@ export class AgentCoreServiceHarness {
     const startedAt = Date.now();
     const initialMessageCount = this.emittedMessageCountByThread.get(threadId) ?? 0;
     let contextCompaction = await this.getThreadContextCompaction(threadId);
+
+    await this.startRunSnapshot(traceId, threadId, mode, inputPreview);
 
     yield {
       type: "run_started",
@@ -1157,7 +1253,10 @@ export class AgentCoreServiceHarness {
       } else {
         contextCompaction = nextContextCompaction;
       }
-      const interruptRequest = extractInterruptRequest(lastResult) ?? undefined;
+      const rawInterruptRequest = extractInterruptRequest(lastResult);
+      const interruptRequest = rawInterruptRequest
+        ? enrichHitlRequest(rawInterruptRequest)
+        : undefined;
       const rejectResolvedMessages = interruptRequest
         ? await this.resolveRepeatedRejectedInterrupt(
             threadId,
@@ -1195,6 +1294,7 @@ export class AgentCoreServiceHarness {
             actionRequestCount: interruptRequest.actionRequests.length,
           },
         });
+        await this.finalizeRunSnapshot(traceId, "interrupted");
         yield {
           type: "run_interrupted",
           traceId,
@@ -1228,6 +1328,7 @@ export class AgentCoreServiceHarness {
       });
       // Fire-and-forget: extract memorable facts from user messages
       this.extractMemoriesAsync(traceId, threadId, finalNewMessages);
+      await this.finalizeRunSnapshot(traceId, "completed");
 
       yield {
         type: "run_completed",
@@ -1248,7 +1349,53 @@ export class AgentCoreServiceHarness {
           error: error instanceof Error ? error.message : String(error),
         },
       });
+      await this.finalizeRunSnapshot(traceId, "failed");
       throw error;
+    }
+  }
+
+  private async startRunSnapshot(
+    traceId: string,
+    threadId: string,
+    mode: "run" | "resume",
+    inputPreview?: string,
+  ): Promise<void> {
+    if (!this.runtime.runSnapshots) {
+      return;
+    }
+
+    try {
+      await this.runtime.runSnapshots.startRun({
+        traceId,
+        threadId,
+        mode,
+        inputPreview,
+      });
+    } catch (error) {
+      log.warn("runSnapshot.start.failed", {
+        traceId,
+        threadId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private async finalizeRunSnapshot(
+    traceId: string,
+    status: Exclude<RunSnapshotStatus, "running">,
+  ): Promise<void> {
+    if (!this.runtime.runSnapshots) {
+      return;
+    }
+
+    try {
+      await this.runtime.runSnapshots.finalizeRun(traceId, status);
+    } catch (error) {
+      log.warn("runSnapshot.finalize.failed", {
+        traceId,
+        status,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

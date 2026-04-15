@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import AppKit
 import os
 
 // MARK: - App View Model
@@ -12,6 +13,12 @@ import os
 @Observable
 @MainActor
 final class AppViewModel {
+
+    struct PreflightQuickAction {
+        let title: String
+        let systemImage: String
+        let perform: () -> Void
+    }
 
     // MARK: - Backend State
 
@@ -30,6 +37,8 @@ final class AppViewModel {
     private(set) var backendStatus: BackendStatus = .disconnected
     private(set) var backendHealth: HealthResponse?
     private(set) var backendDiagnostics: DiagnosticsResponse?
+    private(set) var backendDoctor: DoctorResponse?
+    private(set) var activeThreadMemoryInjection: MemoryInjectionSnapshot?
     var backendURL: String {
         didSet {
             UserDefaults.standard.set(backendURL, forKey: "mantle.backendURL")
@@ -116,6 +125,7 @@ final class AppViewModel {
     /// Tracks the last time we persisted during an active stream
     private var lastStreamPersistTime: Date?
     private var lastDiagnosticsRefresh: Date?
+    private var lastDoctorRefresh: Date?
     private var draftTaskMode: ThreadTaskMode =
         UserDefaults.standard.string(forKey: "mantle.draftTaskMode")
             .flatMap(ThreadTaskMode.init(rawValue:))
@@ -151,6 +161,9 @@ final class AppViewModel {
 
         // Start context daemon (environment snapshot collection)
         contextDaemon.start()
+        Task {
+            await permissionManager.refreshScreenCaptureStatus()
+        }
 
         // Start computer-use HTTP server (agent-core calls this to execute desktop actions)
         startComputerUseServer()
@@ -303,6 +316,7 @@ final class AppViewModel {
         let thread = ThreadState(title: title, taskMode: resolvedTaskMode)
         threads.insert(thread, at: 0)
         activeThreadId = thread.id
+        activeThreadMemoryInjection = nil
         persistThread(at: 0)
     }
 
@@ -411,6 +425,7 @@ final class AppViewModel {
         // Cancel any active stream first
         chatVM.cancel()
         activeThreadId = id
+        Task { await refreshActiveThreadMemoryInjection(force: true) }
     }
 
     /// Retry the last user message in the active thread
@@ -662,6 +677,9 @@ final class AppViewModel {
             threads[index].isStreaming = true
             threads[index].lastTraceId = traceId
             threads[index].error = nil
+            Task { [weak self] in
+                await self?.refreshActiveThreadMemoryInjection(force: true)
+            }
             lastStreamPersistTime = nil  // Reset for new stream
             // Initialize streaming stats
             threads[index].streamingStats = StreamingStats(streamStartTime: .now)
@@ -731,6 +749,9 @@ final class AppViewModel {
             threads[index].isStreaming = false
             threads[index].pendingApproval = request
             persistThread(at: index)
+            Task { [weak self] in
+                await self?.refreshActiveThreadMemoryInjection(force: true)
+            }
             // Notify: HITL approval needed
             NotificationManager.shared.notifyApprovalNeeded(
                 threadTitle: threads[index].title,
@@ -740,6 +761,9 @@ final class AppViewModel {
         case .completed(let result):
             threads[index].isStreaming = false
             threads[index].pendingApproval = nil
+            Task { [weak self] in
+                await self?.refreshActiveThreadMemoryInjection(force: true)
+            }
             // Finalize streaming stats
             threads[index].streamingStats?.streamEndTime = .now
             threads[index].lastCompletedStats = threads[index].streamingStats
@@ -786,7 +810,7 @@ final class AppViewModel {
     private func observeProcessManager() {
         processObserverTask = Task { [weak self] in
             guard let self else { return }
-            for await state in await self.processManager.stateUpdates {
+            for await state in self.processManager.stateUpdates {
                 self.processState = state
                 // Map process state to backend status for UI
                 switch state {
@@ -798,19 +822,23 @@ final class AppViewModel {
                 case .nodeNotFound:
                     self.backendHealth = nil
                     self.backendDiagnostics = nil
+                    self.backendDoctor = nil
                     self.backendStatus = .error("Node.js not found")
                 case .startFailed(let msg):
                     self.backendHealth = nil
                     self.backendDiagnostics = nil
+                    self.backendDoctor = nil
                     self.backendStatus = .error(msg)
                 case .crashed(let msg):
                     self.backendHealth = nil
                     self.backendDiagnostics = nil
+                    self.backendDoctor = nil
                     self.backendStatus = .error(msg)
                     NotificationManager.shared.notifyBackendError(message: "Backend crashed: \(msg)")
                 case .stopped:
                     self.backendHealth = nil
                     self.backendDiagnostics = nil
+                    self.backendDoctor = nil
                     self.backendStatus = .disconnected
                 }
             }
@@ -824,11 +852,15 @@ final class AppViewModel {
         chatVM.cancel()
         backendHealth = nil
         backendDiagnostics = nil
+        backendDoctor = nil
+        activeThreadMemoryInjection = nil
         lastDiagnosticsRefresh = nil
+        lastDoctorRefresh = nil
 
         guard let baseURL = URL(string: backendURL) else {
             backendHealth = nil
             backendDiagnostics = nil
+            backendDoctor = nil
             backendStatus = .error("Invalid backend URL: \(backendURL)")
             return
         }
@@ -917,7 +949,10 @@ final class AppViewModel {
         healthCheckTask?.cancel()
         backendHealth = nil
         backendDiagnostics = nil
+        backendDoctor = nil
+        activeThreadMemoryInjection = nil
         lastDiagnosticsRefresh = nil
+        lastDoctorRefresh = nil
         backendStatus = .connecting
 
         healthCheckTask = Task { [weak self] in
@@ -947,16 +982,22 @@ final class AppViewModel {
                 backendHealth = response
                 backendStatus = .connected(model: response.model)
                 await refreshDiagnosticsIfNeeded()
+                await refreshDoctorIfNeeded()
+                await refreshActiveThreadMemoryInjection()
                 return true
             } else {
                 backendHealth = nil
                 backendDiagnostics = nil
+                backendDoctor = nil
+                activeThreadMemoryInjection = nil
                 backendStatus = .error("Backend returned ok=false")
                 return false
             }
         } catch {
             backendHealth = nil
             backendDiagnostics = nil
+            backendDoctor = nil
+            activeThreadMemoryInjection = nil
             backendStatus = .error(error.localizedDescription)
             return false
         }
@@ -989,6 +1030,152 @@ final class AppViewModel {
                 backendDiagnostics = nil
             }
         }
+    }
+
+    private func refreshDoctorIfNeeded(force: Bool = false) async {
+        if !force, let lastDoctorRefresh,
+           Date.now.timeIntervalSince(lastDoctorRefresh) < 20 {
+            return
+        }
+
+        do {
+            backendDoctor = try await client.doctor()
+            lastDoctorRefresh = .now
+        } catch {
+            if force {
+                backendDoctor = nil
+            }
+        }
+    }
+
+    func refreshActiveThreadMemoryInjection(force: Bool = false) async {
+        guard let threadId = activeThreadId else {
+            activeThreadMemoryInjection = nil
+            return
+        }
+
+        if !force,
+           let snapshot = activeThreadMemoryInjection,
+           snapshot.threadId == threadId,
+           let updatedAt = ISO8601DateFormatter().date(from: snapshot.updatedAt),
+           Date.now.timeIntervalSince(updatedAt) < 8 {
+            return
+        }
+
+        do {
+            let envelope = try await client.memoryInjection(threadId: threadId)
+            activeThreadMemoryInjection = envelope.snapshot
+        } catch {
+            if force {
+                activeThreadMemoryInjection = nil
+            }
+        }
+    }
+
+    var shouldShowPreflightCard: Bool {
+        if !permissionManager.status.accessibility {
+            return true
+        }
+        if backendHealth == nil {
+            return true
+        }
+        if let doctor = backendDoctor {
+            return doctor.summary.overallStatus != .pass
+        }
+        return false
+    }
+
+    func copyDoctorSummaryToClipboard() {
+        var lines: [String] = []
+        lines.append("Mantle Preflight")
+        lines.append("Backend status: \(backendStatusSummary)")
+        if let doctor = backendDoctor {
+            lines.append("Doctor status: \(doctor.summary.overallStatus.rawValue)")
+            for check in doctor.checks {
+                let marker: String
+                switch check.status {
+                case .pass: marker = "PASS"
+                case .warn: marker = "WARN"
+                case .fail: marker = "FAIL"
+                }
+                lines.append("[\(marker)] \(check.title): \(check.summary)")
+                if let fixHint = check.fixHint, !fixHint.isEmpty {
+                    lines.append("  Fix: \(fixHint)")
+                }
+            }
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
+    }
+
+    func preflightQuickAction(for check: DoctorCheck) -> PreflightQuickAction? {
+        guard let doctor = backendDoctor else { return nil }
+
+        switch check.id {
+        case "workspace":
+            return PreflightQuickAction(
+                title: "Reveal Workspace",
+                systemImage: "folder"
+            ) { [workspacePath = doctor.runtime.workspaceDir] in
+                self.revealPathInFinder(workspacePath)
+            }
+        case "data-dir":
+            return PreflightQuickAction(
+                title: "Reveal Data Folder",
+                systemImage: "externaldrive"
+            ) { [dataDir = doctor.runtime.dataDir] in
+                self.revealPathInFinder(dataDir)
+            }
+        case "memory-store":
+            return PreflightQuickAction(
+                title: "Reveal Memory File",
+                systemImage: "brain"
+            ) { [memoryFilePath = doctor.runtime.memoryFilePath] in
+                self.revealPathInFinder(memoryFilePath)
+            }
+        case "model-provider":
+            guard
+                let baseUrl = doctor.runtime.baseUrl,
+                let url = URL(string: baseUrl)
+            else {
+                return nil
+            }
+            return PreflightQuickAction(
+                title: "Open Provider",
+                systemImage: "safari"
+            ) {
+                NSWorkspace.shared.open(url)
+            }
+        default:
+            return nil
+        }
+    }
+
+    private var backendStatusSummary: String {
+        switch backendStatus {
+        case .disconnected:
+            return "Disconnected"
+        case .connecting:
+            return "Connecting"
+        case .connected(let model):
+            return model.map { "Connected (\($0))" } ?? "Connected"
+        case .error(let message):
+            return "Error: \(message)"
+        }
+    }
+
+    private func revealPathInFinder(_ rawPath: String) {
+        let path = NSString(string: rawPath).expandingTildeInPath
+        let url = URL(fileURLWithPath: path)
+        var isDirectory: ObjCBool = false
+
+        if FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+            return
+        }
+
+        let parent = url.deletingLastPathComponent()
+        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: parent.path)
     }
 
     // MARK: - SwiftData Persistence

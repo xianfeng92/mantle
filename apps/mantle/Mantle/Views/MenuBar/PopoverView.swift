@@ -243,6 +243,28 @@ struct PopoverView: View {
                     subtitle: "The popover is optimized for the three launch workflows first, with broader starters kept underneath."
                 )
 
+                if appVM.shouldShowPreflightCard {
+                    PreflightStatusCard(
+                        backendStatus: appVM.backendStatus,
+                        processState: appVM.processState,
+                        doctor: appVM.backendDoctor,
+                        permissionStatus: appVM.permissionManager.status,
+                        onQuickFix: { appVM.preflightQuickAction(for: $0) },
+                        onRestartBackend: {
+                            Task { await appVM.restartBackend() }
+                        },
+                        onCopyReport: {
+                            appVM.copyDoctorSummaryToClipboard()
+                        },
+                        onOpenAccessibilitySettings: {
+                            appVM.permissionManager.openAccessibilitySettings()
+                        },
+                        onOpenScreenCaptureSettings: {
+                            appVM.permissionManager.openScreenCaptureSettings()
+                        }
+                    )
+                }
+
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Launch Workflows")
                         .font(.caption)

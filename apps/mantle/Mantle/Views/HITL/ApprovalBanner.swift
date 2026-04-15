@@ -28,6 +28,13 @@ struct ApprovalBanner: View {
     }
 
     private var riskSummary: String {
+        let highestRisk = request.actionRequests.compactMap(\.risk).max { lhs, rhs in
+            riskRank(lhs.level) < riskRank(rhs.level)
+        }
+        if let highestRisk {
+            return highestRisk.estimatedImpact ?? highestRisk.summary
+        }
+
         let names = Set(request.actionRequests.map(\.name))
 
         if names.contains("execute") {
@@ -61,14 +68,24 @@ struct ApprovalBanner: View {
                                 systemImage: "square.stack.3d.up"
                             )
 
-                            if LedgerPresenter.likelySupportsRollback(request) {
-                                LedgerStatusChip(
-                                    title: "Rollback Available",
-                                    tone: .success,
-                                    systemImage: "arrow.uturn.backward.circle"
-                                )
-                            }
+                        if LedgerPresenter.likelySupportsRollback(request) {
+                            LedgerStatusChip(
+                                title: "Rollback Available",
+                                tone: .success,
+                                systemImage: "arrow.uturn.backward.circle"
+                            )
                         }
+
+                        if let highestRisk = request.actionRequests.compactMap(\.risk).max(by: {
+                            riskRank($0.level) < riskRank($1.level)
+                        }) {
+                            LedgerStatusChip(
+                                title: LedgerPresenter.title(for: highestRisk.level),
+                                tone: LedgerPresenter.tone(for: highestRisk.level),
+                                systemImage: LedgerPresenter.symbol(for: highestRisk.level)
+                            )
+                        }
+                    }
 
                         Text("Review planned actions before Mantle continues")
                             .font(.headline)
@@ -185,11 +202,33 @@ struct ApprovalBanner: View {
                         .foregroundStyle(Design.textSecondary)
                         .lineLimit(1)
                 }
+
+                if let risk = action.risk {
+                    HStack(spacing: 6) {
+                        Image(systemName: LedgerPresenter.symbol(for: risk.level))
+                            .font(.caption2)
+                            .foregroundStyle(LedgerPresenter.tone(for: risk.level).color)
+                        Text(LedgerPresenter.title(for: risk.level))
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(LedgerPresenter.tone(for: risk.level).color)
+                    }
+                }
             }
 
             Spacer(minLength: 0)
         }
         .padding(12)
         .background(Design.surfaceBase, in: RoundedRectangle(cornerRadius: Design.cardCornerRadius))
+    }
+
+    private func riskRank(_ level: ActionRiskLevel) -> Int {
+        switch level {
+        case .low:
+            return 0
+        case .medium:
+            return 1
+        case .high:
+            return 2
+        }
     }
 }

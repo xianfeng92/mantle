@@ -55,6 +55,58 @@ struct HealthResponse: Codable, Sendable {
     let virtualMode: Bool?
 }
 
+// MARK: - Doctor
+
+struct DoctorResponse: Codable, Sendable {
+    let ok: Bool
+    let service: String
+    let checkedAt: String
+    let summary: DoctorSummary
+    let runtime: DoctorRuntime
+    let checks: [DoctorCheck]
+
+    var attentionChecks: [DoctorCheck] {
+        checks.filter { $0.status != .pass }
+    }
+}
+
+struct DoctorSummary: Codable, Sendable {
+    let overallStatus: DoctorCheckStatus
+    let passCount: Int
+    let warnCount: Int
+    let failCount: Int
+}
+
+struct DoctorRuntime: Codable, Sendable {
+    let model: String
+    let promptProfile: String
+    let contextWindowSize: Int
+    let workspaceDir: String
+    let dataDir: String
+    let memoryFilePath: String
+    let workspaceMode: String
+    let virtualMode: Bool
+    let baseUrl: String?
+    let sandboxLevel: Int
+    let skillCount: Int
+    let subagentCount: Int
+}
+
+struct DoctorCheck: Codable, Sendable, Identifiable {
+    let id: String
+    let title: String
+    let status: DoctorCheckStatus
+    let summary: String
+    let details: String?
+    let fixHint: String?
+}
+
+enum DoctorCheckStatus: String, Codable, Sendable {
+    case pass
+    case warn
+    case fail
+}
+
 // MARK: - Thread
 
 struct CreateThreadResponse: Codable, Sendable {
@@ -170,6 +222,161 @@ struct VerificationStats: Codable, Sendable {
     let passed: Int
     let failed: Int
     let passRatePercent: Int?
+}
+
+// MARK: - Memory Injection
+
+struct MemoryInjectionEnvelope: Codable, Sendable {
+    let threadId: String
+    let snapshot: MemoryInjectionSnapshot?
+}
+
+struct MemoryInjectionSnapshot: Codable, Sendable {
+    let threadId: String
+    let updatedAt: String
+    let budgetTokens: Int
+    let skipped: Bool
+    let reason: String?
+    let estimatedTokens: Int
+    let entries: [MemoryEntry]
+}
+
+struct MemoryEntry: Codable, Sendable, Identifiable {
+    let id: String
+    let type: String
+    let content: String
+    let source: MemoryEntrySource
+    let tags: [String]
+}
+
+struct MemoryEntrySource: Codable, Sendable {
+    let threadId: String
+    let traceId: String
+    let createdAt: String
+}
+
+// MARK: - Run Snapshots
+
+struct RunSnapshotsResponse: Codable, Sendable {
+    let runs: [RunSnapshotRecord]
+}
+
+struct RunSnapshotEnvelope: Codable, Sendable {
+    let run: RunSnapshotRecord
+}
+
+struct RunSnapshotRecord: Codable, Sendable, Identifiable {
+    let traceId: String
+    let threadId: String
+    let mode: RunSnapshotMode
+    let status: RunSnapshotStatus
+    let startedAt: String
+    let completedAt: String?
+    let inputPreview: String?
+    let actions: [RunSnapshotActionRecord]
+    let files: [RunSnapshotFileRecord]
+    let summary: RunSnapshotSummary
+    let restoreHistory: [RunSnapshotRestoreHistoryEntry]?
+
+    var id: String { traceId }
+}
+
+enum RunSnapshotMode: String, Codable, Sendable {
+    case run
+    case resume
+}
+
+enum RunSnapshotStatus: String, Codable, Sendable {
+    case running
+    case completed
+    case interrupted
+    case failed
+}
+
+struct RunSnapshotActionRecord: Codable, Sendable, Identifiable {
+    let id: String
+    let timestamp: String
+    let toolName: String
+    let status: RunSnapshotActionStatus
+    let summary: String
+    let touchedPaths: [String]
+    let moveIds: [String]?
+    let error: String?
+}
+
+enum RunSnapshotActionStatus: String, Codable, Sendable {
+    case completed
+    case failed
+}
+
+struct RunSnapshotFileRecord: Codable, Sendable, Identifiable {
+    let path: String
+    let changeType: RunSnapshotChangeType
+    let moveRole: String?
+    let before: RunSnapshotFileVersion
+    let after: RunSnapshotFileVersion
+    let restorable: Bool
+
+    var id: String { path }
+}
+
+enum RunSnapshotChangeType: String, Codable, Sendable {
+    case created
+    case updated
+    case deleted
+    case moved_in
+    case moved_out
+    case unchanged
+}
+
+struct RunSnapshotFileVersion: Codable, Sendable {
+    let exists: Bool
+    let blobPath: String?
+    let size: Int?
+    let modifiedAt: String?
+    let sha256: String?
+    let preview: String?
+    let binary: Bool?
+    let truncated: Bool?
+    let captureError: String?
+}
+
+struct RunSnapshotSummary: Codable, Sendable {
+    let changedFiles: Int
+    let createdFiles: Int
+    let updatedFiles: Int
+    let deletedFiles: Int
+    let movedFiles: Int
+    let restorableFiles: Int
+}
+
+struct RunSnapshotRestoreHistoryEntry: Codable, Sendable, Identifiable {
+    let timestamp: String
+    let dryRun: Bool
+    let restoredFiles: Int
+    let conflicts: Int
+
+    var id: String { "\(timestamp)-\(dryRun)-\(restoredFiles)-\(conflicts)" }
+}
+
+struct RunSnapshotRestoreResult: Codable, Sendable {
+    let ok: Bool
+    let dryRun: Bool
+    let traceId: String
+    let summary: RunSnapshotSummary
+    let conflicts: [String]
+    let results: [RunSnapshotRestoreResultEntry]
+    let restoredAt: String
+}
+
+struct RunSnapshotRestoreResultEntry: Codable, Sendable, Identifiable {
+    let path: String
+    let action: String
+    let ok: Bool
+    let conflict: Bool
+    let reason: String?
+
+    var id: String { "\(path)-\(action)" }
 }
 
 // MARK: - Move Tracker Types

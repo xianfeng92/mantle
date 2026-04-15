@@ -22,6 +22,15 @@ struct ChatDetailView: View {
     // Approve All confirmation
     @State private var showApproveAllConfirm = false
 
+    // Thread checkpoints
+    @State private var threadRunSnapshots: [RunSnapshotRecord] = []
+    @State private var isLoadingRunSnapshots = false
+    @State private var runSnapshotsError: String?
+    @State private var selectedSnapshotTraceId: String?
+    @State private var selectedRestorePreview: RunSnapshotRestoreResult?
+    @State private var previewingSnapshotTraceId: String?
+    @State private var restoringSnapshotTraceId: String?
+
     var body: some View {
         VStack(spacing: 0) {
             if let thread = appVM.activeThread {
@@ -72,6 +81,17 @@ struct ChatDetailView: View {
         }
         .copyToastOverlay(isShowing: $showCopyToast)
         .animation(.easeInOut(duration: Design.transitionDuration), value: showingSearch)
+        .task(id: appVM.activeThreadId) {
+            await loadActiveThreadRunSnapshots(force: true)
+        }
+        .onChange(of: appVM.activeThread?.lastTraceId) { _, _ in
+            Task { await loadActiveThreadRunSnapshots(force: true) }
+        }
+        .onChange(of: appVM.activeThread?.isStreaming ?? false) { _, isStreaming in
+            if !isStreaming {
+                Task { await loadActiveThreadRunSnapshots(force: true) }
+            }
+        }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 // Search toggle
@@ -107,6 +127,41 @@ struct ChatDetailView: View {
                 .help("Export chat")
             }
         }
+        .sheet(
+            isPresented: Binding(
+                get: { selectedSnapshotTraceId != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        selectedSnapshotTraceId = nil
+                        selectedRestorePreview = nil
+                    }
+                }
+            )
+        ) {
+            if let snapshot = currentSelectedSnapshot {
+                RunSnapshotDetailSheet(
+                    snapshot: snapshot,
+                    restorePreview: selectedRestorePreview,
+                    isPreviewing: previewingSnapshotTraceId == snapshot.traceId,
+                    isRestoring: restoringSnapshotTraceId == snapshot.traceId,
+                    onPreviewRestore: {
+                        Task { await previewRestore(snapshot) }
+                    },
+                    onRestoreNow: {
+                        Task { await restoreSnapshot(snapshot) }
+                    }
+                )
+            } else {
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text("Loading checkpoint details…")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(minWidth: 560, minHeight: 360)
+                .padding()
+            }
+        }
     }
 
     // MARK: - Empty State
@@ -137,7 +192,33 @@ struct ChatDetailView: View {
                     subtitle: "Keep the current context visible, then enter through one of the three launch workflows before using broader starters."
                 )
 
+                if appVM.shouldShowPreflightCard {
+                    PreflightStatusCard(
+                        backendStatus: appVM.backendStatus,
+                        processState: appVM.processState,
+                        doctor: appVM.backendDoctor,
+                        permissionStatus: appVM.permissionManager.status,
+                        onQuickFix: { appVM.preflightQuickAction(for: $0) },
+                        onRestartBackend: {
+                            Task { await appVM.restartBackend() }
+                        },
+                        onCopyReport: {
+                            appVM.copyDoctorSummaryToClipboard()
+                        },
+                        onOpenAccessibilitySettings: {
+                            appVM.permissionManager.openAccessibilitySettings()
+                        },
+                        onOpenScreenCaptureSettings: {
+                            appVM.permissionManager.openScreenCaptureSettings()
+                        }
+                    )
+                }
+
                 ContextInspectorCard(snapshot: appVM.contextDaemon.currentSnapshot)
+                MemoryInjectionCard(snapshot: appVM.activeThreadMemoryInjection)
+                if shouldShowThreadCheckpointsCard {
+                    threadCheckpointsCard
+                }
 
                 if let health = appVM.backendHealth {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -509,6 +590,11 @@ struct ChatDetailView: View {
                     }
                 }
             }
+
+            MemoryInjectionCard(snapshot: appVM.activeThreadMemoryInjection)
+            if shouldShowThreadCheckpointsCard {
+                threadCheckpointsCard
+            }
         }
         .padding(Design.panelPadding)
         .background(Design.surfaceElevated, in: RoundedRectangle(cornerRadius: Design.panelCornerRadius))
@@ -549,6 +635,127 @@ struct ChatDetailView: View {
             .background(Design.surfaceMuted, in: Capsule())
     }
 
+    private var shouldShowThreadCheckpointsCard: Bool {
+        isLoadingRunSnapshots || !threadRunSnapshots.isEmpty || runSnapshotsError != nil
+    }
+
+    private var currentSelectedSnapshot: RunSnapshotRecord? {
+        guard let traceId = selectedSnapshotTraceId else { return nil }
+        return threadRunSnapshots.first { $0.traceId == traceId }
+    }
+
+    private var threadCheckpointsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Thread Checkpoints")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Design.accentContext)
+                    Text("Compare recent runs and preview restore without leaving the conversation.")
+                        .font(.callout)
+                        .foregroundStyle(Design.textSecondary)
+                }
+
+                Spacer()
+
+                if isLoadingRunSnapshots {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Button {
+                        Task { await loadActiveThreadRunSnapshots(force: true) }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+
+            if let error = runSnapshotsError, threadRunSnapshots.isEmpty {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(Design.stateDanger)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(Design.textSecondary)
+                }
+            } else if threadRunSnapshots.isEmpty {
+                Text("No checkpoints for this thread yet. Once a run writes, edits, or tracks a move, it will appear here.")
+                    .font(.caption)
+                    .foregroundStyle(Design.textSecondary)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(threadRunSnapshots.prefix(3))) { snapshot in
+                        threadCheckpointRow(snapshot)
+                    }
+                }
+
+                if let error = runSnapshotsError {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(Design.stateWarning)
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(Design.textSecondary)
+                    }
+                }
+            }
+        }
+        .padding(Design.panelPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Design.surfaceElevated, in: RoundedRectangle(cornerRadius: Design.cardCornerRadius))
+    }
+
+    @ViewBuilder
+    private func threadCheckpointRow(_ snapshot: RunSnapshotRecord) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    threadCheckpointStatusChip(snapshot.status)
+                    if snapshot.summary.changedFiles > 0 {
+                        runtimeBadge("\(snapshot.summary.changedFiles) changed")
+                    }
+                    if snapshot.summary.restorableFiles > 0 {
+                        runtimeBadge("\(snapshot.summary.restorableFiles) restorable")
+                    }
+                }
+
+                Text(snapshot.inputPreview ?? "No input preview captured for this run.")
+                    .font(.callout)
+                    .foregroundStyle(Design.textPrimary)
+                    .lineLimit(2)
+
+                Text(threadCheckpointMetaLine(snapshot))
+                    .font(.caption)
+                    .foregroundStyle(Design.textSecondary)
+
+                if let firstChanged = snapshot.files.first(where: { $0.changeType != .unchanged }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: threadCheckpointIcon(for: firstChanged.changeType))
+                            .foregroundStyle(threadCheckpointColor(for: firstChanged.changeType))
+                            .font(.caption)
+                        Text(shortenPath(firstChanged.path))
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(Design.textSecondary)
+                            .lineLimit(1)
+                    }
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            Button("Compare") {
+                selectedSnapshotTraceId = snapshot.traceId
+                selectedRestorePreview = nil
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Design.accent)
+            .controlSize(.small)
+        }
+        .padding(12)
+        .background(Design.surfaceMuted, in: RoundedRectangle(cornerRadius: Design.cornerRadius))
+    }
+
     private func formatContextWindow(_ size: Int) -> String {
         if size >= 1000 {
             return String(format: "%.1fK", Double(size) / 1000)
@@ -572,6 +779,163 @@ struct ChatDetailView: View {
             return "\(prefix) • \(selection.text.count) chars • \(sourceAppName)"
         }
         return "\(prefix) • \(selection.text.count) chars"
+    }
+
+    private func loadActiveThreadRunSnapshots(force: Bool = false) async {
+        guard let threadId = appVM.activeThreadId else {
+            threadRunSnapshots = []
+            selectedSnapshotTraceId = nil
+            selectedRestorePreview = nil
+            runSnapshotsError = nil
+            return
+        }
+
+        if isLoadingRunSnapshots && !force {
+            return
+        }
+
+        isLoadingRunSnapshots = true
+        defer { isLoadingRunSnapshots = false }
+        if force {
+            runSnapshotsError = nil
+        }
+
+        do {
+            let response = try await appVM.client.runSnapshots(threadId: threadId, limit: 8)
+            guard appVM.activeThreadId == threadId else { return }
+            threadRunSnapshots = response.runs
+            if let traceId = selectedSnapshotTraceId,
+               !threadRunSnapshots.contains(where: { $0.traceId == traceId }) {
+                selectedSnapshotTraceId = nil
+                selectedRestorePreview = nil
+            }
+            runSnapshotsError = nil
+        } catch {
+            guard appVM.activeThreadId == threadId else { return }
+            if threadRunSnapshots.isEmpty || force {
+                runSnapshotsError = error.localizedDescription
+            }
+        }
+
+    }
+
+    private func previewRestore(_ snapshot: RunSnapshotRecord) async {
+        previewingSnapshotTraceId = snapshot.traceId
+        runSnapshotsError = nil
+        do {
+            selectedRestorePreview = try await appVM.client.restoreRunSnapshot(
+                traceId: snapshot.traceId,
+                dryRun: true
+            )
+        } catch {
+            runSnapshotsError = error.localizedDescription
+        }
+        previewingSnapshotTraceId = nil
+    }
+
+    private func restoreSnapshot(_ snapshot: RunSnapshotRecord) async {
+        restoringSnapshotTraceId = snapshot.traceId
+        runSnapshotsError = nil
+        do {
+            selectedRestorePreview = try await appVM.client.restoreRunSnapshot(
+                traceId: snapshot.traceId,
+                dryRun: false
+            )
+            await loadActiveThreadRunSnapshots(force: true)
+        } catch {
+            runSnapshotsError = error.localizedDescription
+        }
+        restoringSnapshotTraceId = nil
+    }
+
+    private func threadCheckpointMetaLine(_ snapshot: RunSnapshotRecord) -> String {
+        let trace = snapshot.traceId.prefix(8)
+        let started = formatCheckpointDate(snapshot.startedAt)
+        return "Trace \(trace) • \(snapshot.mode.rawValue.capitalized) • \(snapshot.status.rawValue.capitalized) • \(started)"
+    }
+
+    private func formatCheckpointDate(_ value: String) -> String {
+        guard let date = ISO8601DateFormatter().date(from: value) else {
+            return value
+        }
+        return date.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    private func shortenPath(_ path: String) -> String {
+        let home = NSHomeDirectory()
+        if path.hasPrefix(home) {
+            return "~" + path.dropFirst(home.count)
+        }
+        return path
+    }
+
+    private func threadCheckpointStatusChip(_ status: RunSnapshotStatus) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: threadCheckpointStatusIcon(status))
+                .font(.caption2)
+            Text(status.rawValue.capitalized)
+                .font(.caption2.weight(.semibold))
+        }
+        .foregroundStyle(threadCheckpointStatusColor(status))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(threadCheckpointStatusColor(status).opacity(0.10), in: Capsule())
+    }
+
+    private func threadCheckpointStatusIcon(_ status: RunSnapshotStatus) -> String {
+        switch status {
+        case .running:
+            return "clock.badge.questionmark"
+        case .completed:
+            return "checkmark.circle"
+        case .interrupted:
+            return "pause.circle"
+        case .failed:
+            return "xmark.octagon"
+        }
+    }
+
+    private func threadCheckpointStatusColor(_ status: RunSnapshotStatus) -> Color {
+        switch status {
+        case .running:
+            return Design.stateWarning
+        case .completed:
+            return Design.stateSuccess
+        case .interrupted:
+            return Design.accent
+        case .failed:
+            return Design.stateDanger
+        }
+    }
+
+    private func threadCheckpointIcon(for changeType: RunSnapshotChangeType) -> String {
+        switch changeType {
+        case .created:
+            return "plus.circle"
+        case .updated:
+            return "pencil.circle"
+        case .deleted:
+            return "trash.circle"
+        case .moved_in, .moved_out:
+            return "arrow.left.arrow.right.circle"
+        case .unchanged:
+            return "minus.circle"
+        }
+    }
+
+    private func threadCheckpointColor(for changeType: RunSnapshotChangeType) -> Color {
+        switch changeType {
+        case .created:
+            return Design.stateSuccess
+        case .updated:
+            return Design.accent
+        case .deleted:
+            return Design.stateDanger
+        case .moved_in, .moved_out:
+            return Design.stateWarning
+        case .unchanged:
+            return .secondary
+        }
     }
 
     @State private var scrollToBottomProxy: ((String) -> Void)?

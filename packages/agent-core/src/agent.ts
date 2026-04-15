@@ -58,6 +58,7 @@ import { createLogger } from "./logger.js";
 import { JsonlTraceRecorder, type TraceRecorder } from "./tracing.js";
 import { MemoryStore } from "./memory.js";
 import { createSandboxMiddleware, type SandboxConfig } from "./sandbox.js";
+import { RunSnapshotsStore } from "./run-snapshots.js";
 import type { InvokeResultLike } from "./types.js";
 
 const log = createLogger("agent");
@@ -118,6 +119,7 @@ export interface AgentRuntime {
   guardrails: AgentCoreGuardrails;
   traceRecorder: TraceRecorder;
   memoryStore: MemoryStore;
+  runSnapshots?: RunSnapshotsStore;
   generalPurposeSubagent: {
     enabled: true;
     name: string;
@@ -164,6 +166,7 @@ function createCompactAgentInvoker(options: {
   sandboxLevel: 0 | 1 | 2;
   sandboxAllowedCommands: string[];
   sandboxBlockedPatterns: string[];
+  runSnapshots?: RunSnapshotsStore;
 }): AgentInvoker {
   const {
     model,
@@ -178,6 +181,7 @@ function createCompactAgentInvoker(options: {
     sandboxLevel,
     sandboxAllowedCommands,
     sandboxBlockedPatterns,
+    runSnapshots,
   } = options;
   const interruptOn = createInterruptOnConfig();
   const subagentMiddleware = [
@@ -196,7 +200,7 @@ function createCompactAgentInvoker(options: {
     }),
     createPatchToolCallsMiddleware(),
     createTildeExpandMiddleware(),
-    createAuditLogMiddleware({ auditLogPath, movesLogPath, workspaceDir }),
+    createAuditLogMiddleware({ auditLogPath, movesLogPath, workspaceDir, runSnapshots }),
   ];
   const compactGeneralPurposeSubagent: SubAgent = {
     name: "general-purpose",
@@ -263,7 +267,7 @@ function createCompactAgentInvoker(options: {
       createPatchToolCallsMiddleware(),
       createHitlRejectionGuardMiddleware(),
       createTildeExpandMiddleware(),
-      createAuditLogMiddleware({ auditLogPath, movesLogPath, workspaceDir }),
+      createAuditLogMiddleware({ auditLogPath, movesLogPath, workspaceDir, runSnapshots }),
       ...mainSkillsMiddleware,
       humanInTheLoopMiddleware({ interruptOn }),
     ],
@@ -344,6 +348,7 @@ export async function createAgentRuntime(
   });
   const traceRecorder = new JsonlTraceRecorder(settings.traceLogPath);
   const memoryStore = new MemoryStore(settings.memoryFilePath);
+  const runSnapshots = new RunSnapshotsStore(settings.runSnapshotsDir, settings.workspaceDir);
   const mainSkillSources = skillSources.map((source) => source.backendPath);
   log.info("runtime.loaded", { skills: skillSources.length, subagents: loadedSubagents.length, graph: settings.agentGraphVersion });
   const agent =
@@ -361,6 +366,7 @@ export async function createAgentRuntime(
           sandboxLevel: settings.sandboxLevel,
           sandboxAllowedCommands: settings.sandboxAllowedCommands,
           sandboxBlockedPatterns: settings.sandboxBlockedPatterns,
+          runSnapshots,
         })
       : (createDeepAgent({
           name: "agent-core",
@@ -392,6 +398,7 @@ export async function createAgentRuntime(
     guardrails,
     traceRecorder,
     memoryStore,
+    runSnapshots,
     generalPurposeSubagent: {
       enabled: true,
       name: "general-purpose",

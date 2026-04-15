@@ -76,10 +76,22 @@ export function validateUserInput(value: unknown): UserInput | null {
 
 export type DecisionType = "approve" | "edit" | "reject";
 
+export type ActionRiskLevel = "low" | "medium" | "high";
+
+export interface ActionRiskAssessment {
+  level: ActionRiskLevel;
+  summary: string;
+  estimatedImpact?: string;
+  touchedPaths?: string[];
+  command?: string;
+  rationale?: string;
+}
+
 export interface ActionRequest {
   name: string;
   args: Record<string, unknown>;
   description?: string;
+  risk?: ActionRiskAssessment;
 }
 
 export interface ReviewConfig {

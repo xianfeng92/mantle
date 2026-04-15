@@ -13,11 +13,26 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
 
+import { matchSmokeTasks, smokeTaskPackV1 } from "./smoke-task-pack.js";
+
 interface TestResult {
   name: string;
   status: "pass" | "fail" | "skip";
   durationMs: number;
   error?: string;
+}
+
+interface SmokeTaskSummary {
+  id: string;
+  title: string;
+  category: string;
+  objective: string;
+  total: number;
+  pass: number;
+  fail: number;
+  skip: number;
+  status: "pass" | "fail" | "partial" | "uncovered";
+  matchedTests: TestResult[];
 }
 
 interface SmokeReport {
@@ -35,6 +50,10 @@ interface SmokeReport {
     fail: number;
     tests: TestResult[];
   }>;
+  taskPack: {
+    version: string;
+    tasks: SmokeTaskSummary[];
+  };
   allTests: TestResult[];
 }
 
@@ -138,11 +157,46 @@ async function main(): Promise<void> {
     skip: allTests.filter((t) => t.status === "skip").length,
   };
 
+  const tasks: SmokeTaskSummary[] = smokeTaskPackV1.map((task) => {
+    const matchedTests = allTests.filter((test) =>
+      matchSmokeTasks(test.name).some((candidate) => candidate.id === task.id),
+    );
+    const pass = matchedTests.filter((test) => test.status === "pass").length;
+    const fail = matchedTests.filter((test) => test.status === "fail").length;
+    const skip = matchedTests.filter((test) => test.status === "skip").length;
+    const total = matchedTests.length;
+    const status: SmokeTaskSummary["status"] =
+      total === 0
+        ? "uncovered"
+        : fail > 0
+          ? "fail"
+          : pass === total
+            ? "pass"
+            : "partial";
+
+    return {
+      id: task.id,
+      title: task.title,
+      category: task.category,
+      objective: task.objective,
+      total,
+      pass,
+      fail,
+      skip,
+      status,
+      matchedTests,
+    };
+  });
+
   const report: SmokeReport = {
     timestamp: new Date().toISOString(),
     durationMs,
     summary,
     iterations,
+    taskPack: {
+      version: "v1",
+      tasks,
+    },
     allTests,
   };
 
@@ -152,6 +206,8 @@ async function main(): Promise<void> {
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const reportPath = path.join(reportDir, `smoke-${ts}.json`);
   await writeFile(reportPath, JSON.stringify(report, null, 2), "utf8");
+  const markdownPath = path.join(reportDir, `smoke-${ts}.md`);
+  await writeFile(markdownPath, renderMarkdown(report, reportPath), "utf8");
 
   // Print summary
   console.log("");
@@ -176,7 +232,21 @@ async function main(): Promise<void> {
   }
 
   console.log("");
+  console.log("  Smoke task pack:");
+  for (const task of tasks) {
+    const icon =
+      task.status === "pass"
+        ? "✓"
+        : task.status === "fail"
+          ? "✗"
+          : task.status === "partial"
+            ? "△"
+            : "·";
+    console.log(`  ${icon} ${task.id}: ${task.pass}/${task.total} pass`);
+  }
+  console.log("");
   console.log(`  Report: ${reportPath}`);
+  console.log(`  Markdown: ${markdownPath}`);
   console.log("");
 
   if (ciMode && summary.fail > 0) {
@@ -184,6 +254,51 @@ async function main(): Promise<void> {
   }
 
   process.exit(exitCode);
+}
+
+function renderMarkdown(report: SmokeReport, reportPath: string): string {
+  const lines: string[] = [];
+  lines.push("# Smoke Report");
+  lines.push("");
+  lines.push(`- Timestamp: ${report.timestamp}`);
+  lines.push(`- Duration: ${report.durationMs}ms`);
+  lines.push(`- JSON: \`${reportPath}\``);
+  lines.push("");
+  lines.push("## Summary");
+  lines.push("");
+  lines.push(`- Total: ${report.summary.total}`);
+  lines.push(`- Pass: ${report.summary.pass}`);
+  lines.push(`- Fail: ${report.summary.fail}`);
+  lines.push(`- Skip: ${report.summary.skip}`);
+  lines.push("");
+  lines.push("## Task Pack");
+  lines.push("");
+  lines.push("| Task | Category | Status | Pass | Fail | Objective |");
+  lines.push("| --- | --- | --- | ---: | ---: | --- |");
+  for (const task of report.taskPack.tasks) {
+    lines.push(
+      `| ${task.title} | ${task.category} | ${task.status} | ${task.pass} | ${task.fail} | ${task.objective} |`,
+    );
+  }
+  lines.push("");
+  lines.push("## Iterations");
+  lines.push("");
+  for (const [key, iteration] of Object.entries(report.iterations).sort()) {
+    lines.push(`### ${key}`);
+    lines.push("");
+    lines.push(`- Total: ${iteration.total}`);
+    lines.push(`- Pass: ${iteration.pass}`);
+    lines.push(`- Fail: ${iteration.fail}`);
+    if (iteration.fail > 0) {
+      lines.push("");
+      lines.push("Failed tests:");
+      for (const failed of iteration.tests.filter((test) => test.status === "fail")) {
+        lines.push(`- ${failed.name}`);
+      }
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
 }
 
 main().catch((err) => {

@@ -74,6 +74,42 @@ actor AgentCoreClient {
         try await get("diagnostics")
     }
 
+    func doctor() async throws -> DoctorResponse {
+        try await get("doctor")
+    }
+
+    func memoryInjection(threadId: String) async throws -> MemoryInjectionEnvelope {
+        try await getWithQuery("memory/injection", queryItems: [
+            URLQueryItem(name: "threadId", value: threadId)
+        ])
+    }
+
+    // MARK: - Run Snapshots
+
+    func runSnapshots(threadId: String? = nil, limit: Int = 25) async throws -> RunSnapshotsResponse {
+        var queryItems = [URLQueryItem(name: "limit", value: "\(limit)")]
+        if let threadId, !threadId.isEmpty {
+            queryItems.append(URLQueryItem(name: "threadId", value: threadId))
+        }
+        return try await getWithQuery("run-snapshots", queryItems: queryItems)
+    }
+
+    func runSnapshot(traceId: String) async throws -> RunSnapshotEnvelope {
+        try await get("run-snapshots/\(traceId)")
+    }
+
+    func restoreRunSnapshot(
+        traceId: String,
+        dryRun: Bool = true,
+        paths: [String]? = nil
+    ) async throws -> RunSnapshotRestoreResult {
+        struct Body: Encodable {
+            let dryRun: Bool
+            let paths: [String]?
+        }
+        return try await post("run-snapshots/\(traceId)/restore", body: Body(dryRun: dryRun, paths: paths))
+    }
+
     // MARK: - Moves / Rollback
 
     func moves(days: Int = 7) async throws -> MovesResponse {

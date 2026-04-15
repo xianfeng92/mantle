@@ -58,6 +58,12 @@ export function formatActionRequest(action: ActionRequest, allowed: DecisionType
     `Allowed decisions: ${allowed.join(", ")}`,
     `Args: ${JSON.stringify(action.args, null, 2)}`,
   ];
+  if (action.risk) {
+    lines.push(`Risk: ${action.risk.level} — ${action.risk.summary}`);
+    if (action.risk.estimatedImpact) {
+      lines.push(`Impact: ${action.risk.estimatedImpact}`);
+    }
+  }
   if (action.description) {
     lines.push(`Description:\n${action.description}`);
   }

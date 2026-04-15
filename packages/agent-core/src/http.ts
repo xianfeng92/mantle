@@ -21,6 +21,7 @@ import {
   serializeGuardrailViolation,
 } from "./guardrails.js";
 import { readAuditLog } from "./audit-log.js";
+import { collectDoctorReport } from "./doctor.js";
 import { createLogger } from "./logger.js";
 import { listMoves, rollbackMove } from "./move-tracker.js";
 import { DEFAULT_GUI_STEP_BUDGET } from "./tool-staging.js";
@@ -106,6 +107,11 @@ interface ResumeRequestBody {
   threadId?: string;
   resume?: HITLResponse;
   maxInterrupts?: number;
+}
+
+interface RestoreRunSnapshotRequestBody {
+  dryRun?: boolean;
+  paths?: string[];
 }
 
 const DEFAULT_HOST = "127.0.0.1";
@@ -514,6 +520,12 @@ export class AgentCoreHttpServer {
         return;
       }
 
+      if (method === "GET" && pathname === "/doctor") {
+        const report = await collectDoctorReport(this.runtime, this.service.contextWindowSize);
+        sendJson(response, 200, report, this.corsOrigin);
+        return;
+      }
+
       // ── Audit Log ──
       if (method === "GET" && pathname === "/audit") {
         const entries = await readAuditLog(this.runtime.settings.auditLogPath);
@@ -530,6 +542,71 @@ export class AgentCoreHttpServer {
           { maxAgeDays: Number.isFinite(maxAgeDays) ? maxAgeDays : 7 },
         );
         sendJson(response, 200, { moves }, this.corsOrigin);
+        return;
+      }
+
+      if (method === "GET" && pathname === "/run-snapshots") {
+        if (!this.runtime.runSnapshots) {
+          sendJson(response, 501, { error: "Run snapshot support is not enabled." }, this.corsOrigin);
+          return;
+        }
+        const limitRaw = url.searchParams.get("limit");
+        const threadId = url.searchParams.get("threadId")?.trim() || undefined;
+        const limit = limitRaw ? Number(limitRaw) : 25;
+        const runs = await this.runtime.runSnapshots.listRuns({
+          threadId,
+          limit: Number.isFinite(limit) ? limit : 25,
+        });
+        sendJson(response, 200, { runs }, this.corsOrigin);
+        return;
+      }
+
+      if (method === "GET" && parts.length === 2 && parts[0] === "run-snapshots") {
+        if (!this.runtime.runSnapshots) {
+          sendJson(response, 501, { error: "Run snapshot support is not enabled." }, this.corsOrigin);
+          return;
+        }
+        const traceId = decodeURIComponent(parts[1] ?? "").trim();
+        if (!traceId) {
+          sendJson(response, 400, { error: "Trace id is required." }, this.corsOrigin);
+          return;
+        }
+        const run = await this.runtime.runSnapshots.getRun(traceId);
+        if (!run) {
+          sendJson(response, 404, { error: "Run snapshot not found." }, this.corsOrigin);
+          return;
+        }
+        sendJson(response, 200, { run }, this.corsOrigin);
+        return;
+      }
+
+      if (
+        method === "POST" &&
+        parts.length === 3 &&
+        parts[0] === "run-snapshots" &&
+        parts[2] === "restore"
+      ) {
+        if (!this.runtime.runSnapshots) {
+          sendJson(response, 501, { error: "Run snapshot support is not enabled." }, this.corsOrigin);
+          return;
+        }
+        const traceId = decodeURIComponent(parts[1] ?? "").trim();
+        if (!traceId) {
+          sendJson(response, 400, { error: "Trace id is required." }, this.corsOrigin);
+          return;
+        }
+        const body = (await readJsonBody(request)) as RestoreRunSnapshotRequestBody;
+        const result = await this.runtime.runSnapshots.restoreRun(traceId, {
+          dryRun: body.dryRun !== false,
+          paths: Array.isArray(body.paths)
+            ? body.paths.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+            : undefined,
+        });
+        if (!result) {
+          sendJson(response, 404, { error: "Run snapshot not found." }, this.corsOrigin);
+          return;
+        }
+        sendJson(response, 200, result, this.corsOrigin);
         return;
       }
 
@@ -1029,6 +1106,22 @@ export class AgentCoreHttpServer {
       if (method === "GET" && pathname === "/memory") {
         const entries = await this.runtime.memoryStore.list();
         sendJson(response, 200, { entries, count: entries.length }, this.corsOrigin);
+        return;
+      }
+
+      if (method === "GET" && pathname === "/memory/injection") {
+        const threadId = url.searchParams.get("threadId")?.trim();
+        if (!threadId) {
+          sendJson(
+            response,
+            400,
+            { error: "Query parameter `threadId` is required." },
+            this.corsOrigin,
+          );
+          return;
+        }
+        const snapshot = this.service.getLastMemoryInjection(threadId) ?? null;
+        sendJson(response, 200, { threadId, snapshot }, this.corsOrigin);
         return;
       }
 

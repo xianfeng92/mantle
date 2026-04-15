@@ -22,6 +22,27 @@ struct MainWindowView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Design.blockSpacing) {
                         heroSection
+                        if appVM.shouldShowPreflightCard {
+                            PreflightStatusCard(
+                                backendStatus: appVM.backendStatus,
+                                processState: appVM.processState,
+                                doctor: appVM.backendDoctor,
+                                permissionStatus: appVM.permissionManager.status,
+                                onQuickFix: { appVM.preflightQuickAction(for: $0) },
+                                onRestartBackend: {
+                                    Task { await appVM.restartBackend() }
+                                },
+                                onCopyReport: {
+                                    appVM.copyDoctorSummaryToClipboard()
+                                },
+                                onOpenAccessibilitySettings: {
+                                    appVM.permissionManager.openAccessibilitySettings()
+                                },
+                                onOpenScreenCaptureSettings: {
+                                    appVM.permissionManager.openScreenCaptureSettings()
+                                }
+                            )
+                        }
                         ContextInspectorCard(snapshot: appVM.contextDaemon.currentSnapshot)
 
                         if appVM.backendHealth != nil {

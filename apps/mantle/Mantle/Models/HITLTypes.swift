@@ -7,10 +7,26 @@ struct HITLRequest: Codable, Sendable {
     let reviewConfigs: [ReviewConfig]
 }
 
+struct ActionRisk: Codable, Sendable {
+    let level: ActionRiskLevel
+    let summary: String
+    let estimatedImpact: String?
+    let touchedPaths: [String]?
+    let command: String?
+    let rationale: String?
+}
+
+enum ActionRiskLevel: String, Codable, Sendable {
+    case low
+    case medium
+    case high
+}
+
 struct ActionRequest: Codable, Identifiable, Sendable {
     let name: String
     let args: [String: AnyCodable]
     let description: String?
+    let risk: ActionRisk?
 
     var id: String { "\(name)-\(args.keys.sorted().joined())" }
 

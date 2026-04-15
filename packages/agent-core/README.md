@@ -18,6 +18,7 @@
 - 基于 `deepagents` task tool 的 multi-agent / handoff
 - human-in-the-loop 审批中断
 - SQLite checkpoint 持久化
+- run-level checkpoint / compare / restore（覆盖 write/edit/tracked move）
 - 基于规则的 input/output guardrails
 - 基于 `deepagents` summarization middleware 的 context compaction
 - CLI REPL
@@ -183,10 +184,15 @@ npm run start:http
 当前路由：
 
 - `GET /health`
+- `GET /doctor`
+- `GET /run-snapshots`
+- `GET /run-snapshots/:traceId`
 - `GET /skills`
 - `GET /subagents`
 - `GET /traces`
 - `GET /traces/:traceId`
+- `GET /memory/injection?threadId=...`
+- `POST /run-snapshots/:traceId/restore`
 - `POST /threads`
 - `POST /runs`
 - `POST /runs/stream`
@@ -235,6 +241,28 @@ http://127.0.0.1:5173
 
 ```bash
 curl http://127.0.0.1:8787/health
+```
+
+Doctor / preflight 检查：
+
+```bash
+curl http://127.0.0.1:8787/doctor
+```
+
+查看最近的 run checkpoints：
+
+```bash
+curl 'http://127.0.0.1:8787/run-snapshots?limit=10'
+```
+
+对某次 run 做 dry-run restore 预检：
+
+```bash
+curl -X POST http://127.0.0.1:8787/run-snapshots/<trace-id>/restore \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "dryRun": true
+  }'
 ```
 
 查看已配置 skill source 和已加载 skills：

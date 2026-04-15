@@ -23,6 +23,7 @@ export interface AgentCoreSettings {
   traceLogPath: string;
   auditLogPath: string;
   movesLogPath: string;
+  runSnapshotsDir: string;
   memoryFilePath: string;
   httpHost: string;
   httpPort: number;
@@ -148,6 +149,9 @@ export function loadSettings(options: LoadSettingsOptions = {}): AgentCoreSettin
   const movesLogPath = env.AGENT_CORE_MOVES_LOG_PATH
     ? path.resolve(workspaceDir, env.AGENT_CORE_MOVES_LOG_PATH)
     : path.join(dataDir, "moves.jsonl");
+  const runSnapshotsDir = env.AGENT_CORE_RUN_SNAPSHOTS_DIR
+    ? path.resolve(workspaceDir, env.AGENT_CORE_RUN_SNAPSHOTS_DIR)
+    : path.join(dataDir, "run-snapshots");
   const memoryFilePath = env.AGENT_CORE_MEMORY_FILE_PATH
     ? path.resolve(workspaceDir, env.AGENT_CORE_MEMORY_FILE_PATH)
     : path.join(dataDir, "memory.jsonl");
@@ -177,6 +181,7 @@ export function loadSettings(options: LoadSettingsOptions = {}): AgentCoreSettin
     traceLogPath,
     auditLogPath,
     movesLogPath,
+    runSnapshotsDir,
     memoryFilePath,
     httpHost: env.AGENT_CORE_HTTP_HOST || "127.0.0.1",
     httpPort: parseNumber(env.AGENT_CORE_HTTP_PORT, 8787),

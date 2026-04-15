@@ -4,7 +4,8 @@ import path from "node:path";
 import { createMiddleware } from "langchain";
 
 import { createLogger } from "./logger.js";
-import { recordMove } from "./move-tracker.js";
+import { recordMove, type MoveRecord } from "./move-tracker.js";
+import { RunSnapshotsStore } from "./run-snapshots.js";
 
 const log = createLogger("audit");
 
@@ -20,6 +21,7 @@ export interface AuditLogEntry {
   timestamp: string;
   operation: string;
   threadId?: string;
+  traceId?: string;
   args: Record<string, unknown>;
   moves?: Array<{ source: string; dest: string }>;
 }
@@ -123,80 +125,168 @@ export function createAuditLogMiddleware(options: {
   auditLogPath: string;
   movesLogPath: string;
   workspaceDir: string;
+  runSnapshots?: RunSnapshotsStore;
 }) {
-  const { auditLogPath, movesLogPath, workspaceDir } = options;
+  const { auditLogPath, movesLogPath, workspaceDir, runSnapshots } = options;
   let dirEnsured = false;
+
+  function resolveFileToolPath(args: Record<string, unknown>): string | null {
+    const candidate = typeof args.path === "string"
+      ? args.path
+      : typeof args.file_path === "string"
+        ? args.file_path
+        : null;
+    return candidate && candidate.trim() ? candidate.trim() : null;
+  }
+
+  function summarizeAction(
+    toolName: string,
+    args: Record<string, unknown>,
+    moves?: Array<{ source: string; dest: string }>,
+  ): string {
+    if (toolName === "write_file" || toolName === "edit_file") {
+      const targetPath = resolveFileToolPath(args);
+      const verb = toolName === "write_file" ? "Write" : "Edit";
+      return targetPath ? `${verb} ${targetPath}` : `${verb} file`;
+    }
+    if (toolName === "execute") {
+      if (moves?.length) {
+        return moves.length === 1
+          ? `Move ${moves[0]?.source ?? "file"} -> ${moves[0]?.dest ?? "destination"}`
+          : `Move ${moves.length} files`;
+      }
+      const command = typeof args.command === "string" ? args.command.trim() : "";
+      return command ? `Execute ${command}` : "Execute shell command";
+    }
+    return toolName;
+  }
 
   return createMiddleware({
     name: "auditLogMiddleware",
     wrapToolCall: async (request, handler) => {
       const toolName = request.toolCall?.name;
-
-      // Execute the tool first
-      const result = await handler(request);
-
-      // Only log audited tools
-      if (!toolName || !AUDITED_TOOLS.has(toolName)) {
-        return result;
-      }
-
       const args = (request.toolCall.args ?? {}) as Record<string, unknown>;
-      // Best-effort extraction of threadId from LangGraph config
       let threadId: string | undefined;
+      let traceId: string | undefined;
       try {
         const req = request as unknown as Record<string, unknown>;
         const config = req.config as Record<string, unknown> | undefined;
         const configurable = config?.configurable as Record<string, unknown> | undefined;
         threadId = configurable?.thread_id as string | undefined;
+        traceId = configurable?.trace_id as string | undefined;
       } catch {
-        // threadId remains undefined
+        // Best-effort only.
       }
 
-      // Parse mv commands for rollback tracking
-      let moves: Array<{ source: string; dest: string }> | undefined;
+      let resolvedMoves: Array<{ sourcePath: string; destPath: string }> = [];
+      let recordedMoves: MoveRecord[] = [];
+      const touchedPaths: string[] = [];
+      const moveRoles: Record<string, "source" | "dest"> = {};
       if (toolName === "execute") {
-        const command = String(args.command ?? "");
-        const parsed = parseMvCommands(command);
-        if (parsed.length > 0) {
-          const resolvedMoves = await Promise.all(
-            parsed.map((move) => resolveRecordedMovePaths(move, workspaceDir)),
+        const command = typeof args.command === "string" ? args.command : "";
+        const parsedMoves = parseMvCommands(command);
+        if (parsedMoves.length > 0) {
+          resolvedMoves = await Promise.all(
+            parsedMoves.map((move) => resolveRecordedMovePaths(move, workspaceDir)),
           );
-          moves = resolvedMoves.map((move) => ({
-            source: move.sourcePath,
-            dest: move.destPath,
-          }));
-          // Record each move for rollback
-          for (const mv of resolvedMoves) {
+          for (const move of resolvedMoves) {
+            touchedPaths.push(move.sourcePath, move.destPath);
+            moveRoles[move.sourcePath] = "source";
+            moveRoles[move.destPath] = "dest";
+          }
+        }
+      } else if (toolName === "write_file" || toolName === "edit_file") {
+        const targetPath = resolveFileToolPath(args);
+        if (targetPath) {
+          touchedPaths.push(targetPath);
+        }
+      }
+
+      if (traceId && threadId && runSnapshots && touchedPaths.length > 0) {
+        await runSnapshots.beginAction({
+          traceId,
+          threadId,
+          toolName: toolName ?? "unknown",
+          touchedPaths,
+          moveRoles,
+        });
+      }
+
+      let result!: Awaited<ReturnType<typeof handler>>;
+      let toolError: unknown;
+      try {
+        result = await handler(request);
+      } catch (error) {
+        toolError = error;
+      }
+
+      // Only log audited tools
+      if (!toolName || !AUDITED_TOOLS.has(toolName)) {
+        if (toolError) {
+          throw toolError;
+        }
+        return result;
+      }
+
+      let moves: Array<{ source: string; dest: string }> | undefined;
+      if (!toolError && toolName === "execute" && resolvedMoves.length > 0) {
+        moves = resolvedMoves.map((move) => ({
+          source: move.sourcePath,
+          dest: move.destPath,
+        }));
+        recordedMoves = [];
+        for (const move of resolvedMoves) {
+          recordedMoves.push(
             await recordMove(
               {
                 timestamp: new Date().toISOString(),
                 threadId,
-                sourcePath: mv.sourcePath,
-                destPath: mv.destPath,
+                sourcePath: move.sourcePath,
+                destPath: move.destPath,
               },
               movesLogPath,
-            );
-          }
+            ),
+          );
         }
       }
 
-      const entry: AuditLogEntry = {
-        timestamp: new Date().toISOString(),
-        operation: toolName,
-        threadId,
-        args,
-        ...(moves ? { moves } : {}),
-      };
+      if (traceId && threadId && runSnapshots && touchedPaths.length > 0) {
+        await runSnapshots.completeAction({
+          traceId,
+          threadId,
+          toolName,
+          touchedPaths,
+          status: toolError ? "failed" : "completed",
+          summary: summarizeAction(toolName, args, moves),
+          moveIds: recordedMoves.map((move) => move.id),
+          error: toolError instanceof Error ? toolError.message : toolError ? String(toolError) : undefined,
+        });
+      }
 
-      try {
-        if (!dirEnsured) {
-          await mkdir(path.dirname(auditLogPath), { recursive: true });
-          dirEnsured = true;
+      if (!toolError) {
+        const entry: AuditLogEntry = {
+          timestamp: new Date().toISOString(),
+          operation: toolName,
+          threadId,
+          traceId,
+          args,
+          ...(moves ? { moves } : {}),
+        };
+
+        try {
+          if (!dirEnsured) {
+            await mkdir(path.dirname(auditLogPath), { recursive: true });
+            dirEnsured = true;
+          }
+          await appendFile(auditLogPath, JSON.stringify(entry) + "\n");
+          log.debug("recorded", { tool: toolName, threadId, traceId, moves: moves?.length });
+        } catch (err) {
+          log.warn("write.failed", { error: err instanceof Error ? err.message : String(err) });
         }
-        await appendFile(auditLogPath, JSON.stringify(entry) + "\n");
-        log.debug("recorded", { tool: toolName, threadId, moves: moves?.length });
-      } catch (err) {
-        log.warn("write.failed", { error: err instanceof Error ? err.message : String(err) });
+      }
+
+      if (toolError) {
+        throw toolError;
       }
 
       return result;
