@@ -29,3 +29,6 @@ export { type ChannelAdapter } from "./types.js";
 
 // Feishu
 export { FeishuChannel, type FeishuChannelConfig } from "./feishu.js";
+
+// Bootstrap helper
+export { setupChannels, type ChannelsBootstrapResult } from "./bootstrap.js";

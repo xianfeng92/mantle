@@ -31,6 +31,9 @@ export interface AgentCoreSettings {
   heartbeatEnabled: boolean;
   heartbeatTickIntervalSec: number;
   modelSupportsVision: boolean;
+  feishuAppId?: string;
+  feishuAppSecret?: string;
+  feishuAllowedChatIds: string[];
   httpHost: string;
   httpPort: number;
   virtualMode: boolean;
@@ -222,6 +225,9 @@ export function loadSettings(options: LoadSettingsOptions = {}): AgentCoreSettin
       30,
     ),
     modelSupportsVision: inferModelVision(model, env.AGENT_CORE_MODEL_SUPPORTS_VISION),
+    feishuAppId: env.FEISHU_APP_ID?.trim() || undefined,
+    feishuAppSecret: env.FEISHU_APP_SECRET?.trim() || undefined,
+    feishuAllowedChatIds: parseList(env.FEISHU_ALLOWED_CHAT_IDS),
     httpHost: env.AGENT_CORE_HTTP_HOST || "127.0.0.1",
     httpPort: parseNumber(env.AGENT_CORE_HTTP_PORT, 8787),
     virtualMode: parseBoolean(env.AGENT_CORE_VIRTUAL_MODE, true),

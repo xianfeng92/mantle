@@ -1,6 +1,7 @@
 import "dotenv/config";
 
 import { createAgentRuntime } from "./agent.js";
+import { setupChannels } from "./channels/bootstrap.js";
 import { AgentCoreHttpServer } from "./http.js";
 import { createLogger, setLogLevel, type LogLevel } from "./logger.js";
 import { loadSettings } from "./settings.js";
@@ -18,8 +19,12 @@ async function main(): Promise<void> {
     port: settings.httpPort,
   });
 
+  // Start configured IM channels (feishu, …). No-op if none configured.
+  const channels = await setupChannels(runtime);
+
   const shutdown = async (signal: string): Promise<void> => {
     log.info("shutdown", { signal });
+    await channels.stop();
     await httpServer.close();
     process.exit(0);
   };
@@ -32,7 +37,13 @@ async function main(): Promise<void> {
   });
 
   const address = await httpServer.listen();
-  log.info("listening", { host: address.host, port: address.port, model: settings.model, logLevel });
+  log.info("listening", {
+    host: address.host,
+    port: address.port,
+    model: settings.model,
+    logLevel,
+    channels: channels.dispatcher.registeredChannels,
+  });
 }
 
 main().catch((error: unknown) => {

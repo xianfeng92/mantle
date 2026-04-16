@@ -562,6 +562,39 @@ printf '/quit\n' | npm run dev
 curl http://127.0.0.1:8787/health
 ```
 
+## IM Channel 接入
+
+agent-core 支持通过 [Channel trait](docs/specs/2026-04-17-channel-trait-spec.md) 接入 IM 平台。当前已实现飞书。
+
+### 飞书（Feishu / Lark）
+
+1. 在[飞书开放平台](https://open.feishu.cn/)建立一个 app，获取 `App ID` 和 `App Secret`
+2. 设置 env：
+
+```bash
+export FEISHU_APP_ID=cli_xxx
+export FEISHU_APP_SECRET=xxx
+# 可选：白名单，只在这些 chat 响应（逗号分隔）
+export FEISHU_ALLOWED_CHAT_IDS=oc_xxx,oc_yyy
+```
+
+3. 启动 serve：
+
+```bash
+npm run serve
+```
+
+启动日志应出现 `[channels] started channels=["feishu"]`。
+
+**行为说明：**
+- 私聊：所有消息都响应
+- 群聊：只响应 @mention 本 bot 的消息
+- 图片消息：自动 OCR+vision 路由（见 Media Pipeline）
+- 审批：agent 调敏感工具时会发交互卡片，点击按钮继续执行
+
+**不设置 env 会怎样？**
+Channels bootstrap 发现没有配置时日志会打 `no channels configured — skipping`，不影响 HTTP 服务正常启动。
+
 ## 目录概览
 
 - `src/agent.ts`：运行时组装
