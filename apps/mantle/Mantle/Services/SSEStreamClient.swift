@@ -36,7 +36,7 @@ actor SSEStreamClient {
 
     // MARK: - Stream Run
 
-    func streamRun(threadId: String, input: String, context: String? = nil, images: [String] = []) -> AsyncStream<StreamEvent> {
+    func streamRun(threadId: String, input: String, context: String? = nil, images: [String] = [], scopeKey: String? = nil) -> AsyncStream<StreamEvent> {
         let runInput: RunStreamInput
         if images.isEmpty {
             runInput = .text(input)
@@ -47,12 +47,12 @@ actor SSEStreamClient {
             }
             runInput = .multimodal(blocks)
         }
-        let body = RunStreamRequest(threadId: threadId, input: runInput, context: context)
+        let body = RunStreamRequest(threadId: threadId, input: runInput, context: context, scopeKey: scopeKey)
         return openSSEStream(path: "runs/stream", body: body)
     }
 
-    func streamResume(threadId: String, resume: HITLResponse) -> AsyncStream<StreamEvent> {
-        let body = ResumeStreamRequest(threadId: threadId, resume: resume)
+    func streamResume(threadId: String, resume: HITLResponse, scopeKey: String? = nil) -> AsyncStream<StreamEvent> {
+        let body = ResumeStreamRequest(threadId: threadId, resume: resume, scopeKey: scopeKey)
         return openSSEStream(path: "resume/stream", body: body)
     }
 
@@ -310,9 +310,13 @@ private struct RunStreamRequest: Encodable, Sendable {
     let input: RunStreamInput
     /// Optional environment context (YAML) injected as system message on the backend
     let context: String?
+    /// Interruption scope key — same-scope requests abort the previous on the server
+    let scopeKey: String?
 }
 
 private struct ResumeStreamRequest: Encodable, Sendable {
     let threadId: String
     let resume: HITLResponse
+    /// Interruption scope key — same-scope requests abort the previous on the server
+    let scopeKey: String?
 }

@@ -103,12 +103,16 @@ interface RunRequestBody {
   maxInterrupts?: number;
   /** Optional environment context (YAML/text) injected as a system message before user input */
   context?: string;
+  /** Interruption scope key. Same-scope requests abort the previous one. */
+  scopeKey?: string;
 }
 
 interface ResumeRequestBody {
   threadId?: string;
   resume?: HITLResponse;
   maxInterrupts?: number;
+  /** Interruption scope key. Same-scope requests abort the previous one. */
+  scopeKey?: string;
 }
 
 interface RestoreRunSnapshotRequestBody {
@@ -1036,6 +1040,7 @@ export class AgentCoreHttpServer {
         });
 
         const context = typeof body.context === "string" ? body.context.trim() : undefined;
+        const scopeKey = typeof body.scopeKey === "string" ? body.scopeKey.trim() || undefined : undefined;
         await this.streamEventsToResponse(
           response,
           traceId,
@@ -1045,9 +1050,10 @@ export class AgentCoreHttpServer {
             input,
             context: context || undefined,
             signal: abortController.signal,
+            scopeKey,
           }),
         );
-        log.info("stream.done", { threadId, traceId, durationMs: Date.now() - reqStart });
+        log.info("stream.done", { threadId, traceId, scopeKey, durationMs: Date.now() - reqStart });
         return;
       }
 
@@ -1096,6 +1102,7 @@ export class AgentCoreHttpServer {
           abortController.abort();
         });
 
+        const scopeKey = typeof body.scopeKey === "string" ? body.scopeKey.trim() || undefined : undefined;
         await this.streamEventsToResponse(
           response,
           traceId,
@@ -1104,6 +1111,7 @@ export class AgentCoreHttpServer {
             threadId,
             resume: body.resume,
             signal: abortController.signal,
+            scopeKey,
           }),
         );
         return;

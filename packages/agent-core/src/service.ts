@@ -79,6 +79,8 @@ export interface StreamRunOptions {
   /** Optional environment context (e.g. YAML snapshot) prepended as a system message */
   context?: string;
   signal?: AbortSignal;
+  /** Interruption scope key. Same-scope requests abort the previous one. */
+  scopeKey?: string;
 }
 
 export interface StreamResumeOptions {
@@ -86,6 +88,8 @@ export interface StreamResumeOptions {
   threadId: string;
   resume: HITLResponse;
   signal?: AbortSignal;
+  /** Interruption scope key. Same-scope requests abort the previous one. */
+  scopeKey?: string;
 }
 
 export interface ServiceRunResult {
@@ -373,6 +377,14 @@ export class AgentCoreServiceHarness {
   private readonly emittedMessageCountByThread = new Map<string, number>();
   private readonly lastTokenUsageByThread = new Map<string, TokenUsage>();
   private readonly lastMemoryInjectionByThread = new Map<string, MemoryInjectionSnapshot>();
+  /**
+   * Active interruption scopes. Key = scope key (e.g. "chat:thread-123"),
+   * value = the AbortController for the currently-running request in that scope.
+   *
+   * When a new request arrives with the same scopeKey, the old controller is
+   * aborted and replaced. Cross-scope requests are fully independent.
+   */
+  private readonly activeScopes = new Map<string, AbortController>();
 
   constructor(runtime: AgentRuntime) {
     this.runtime = runtime;
@@ -421,27 +433,94 @@ export class AgentCoreServiceHarness {
 
   async *streamRun(options: StreamRunOptions): AsyncGenerator<ServiceStreamEvent> {
     const traceId = options.traceId ?? randomUUID();
-    const messages = await this.buildInputMessages(options.threadId, options.input, options.context);
-    yield* this.executeStream(
-      traceId,
-      options.threadId,
-      "run",
-      { messages },
-      options.signal,
-      buildRunSnapshotPreview(options.input),
-    );
+    const signal = this.acquireScope(options.scopeKey, options.signal);
+    try {
+      const messages = await this.buildInputMessages(options.threadId, options.input, options.context);
+      yield* this.executeStream(
+        traceId,
+        options.threadId,
+        "run",
+        { messages },
+        signal,
+        buildRunSnapshotPreview(options.input),
+      );
+    } finally {
+      this.releaseScope(options.scopeKey, signal);
+    }
   }
 
   async *streamResume(options: StreamResumeOptions): AsyncGenerator<ServiceStreamEvent> {
     const traceId = options.traceId ?? randomUUID();
-    yield* this.executeStream(
-      traceId,
-      options.threadId,
-      "resume",
-      new Command({ resume: normalizeHitlResponse(options.resume) }),
-      options.signal,
-      buildResumeSnapshotPreview(options.resume),
-    );
+    const signal = this.acquireScope(options.scopeKey, options.signal);
+    try {
+      yield* this.executeStream(
+        traceId,
+        options.threadId,
+        "resume",
+        new Command({ resume: normalizeHitlResponse(options.resume) }),
+        signal,
+        buildResumeSnapshotPreview(options.resume),
+      );
+    } finally {
+      this.releaseScope(options.scopeKey, signal);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Interruption scope management
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Acquire an interruption scope. If `scopeKey` is provided and another request
+   * is already active with the same key, the old request is aborted first.
+   *
+   * Returns the AbortSignal to use for this request (composing the caller's
+   * optional signal with the scope's controller).
+   */
+  private acquireScope(
+    scopeKey: string | undefined,
+    callerSignal: AbortSignal | undefined,
+  ): AbortSignal | undefined {
+    if (!scopeKey) return callerSignal;
+
+    // Abort any previous request occupying this scope.
+    const existing = this.activeScopes.get(scopeKey);
+    if (existing) {
+      log.info("scope.preempt", { scopeKey });
+      existing.abort();
+    }
+
+    const controller = new AbortController();
+    this.activeScopes.set(scopeKey, controller);
+
+    // If the caller also has a signal (e.g. HTTP client disconnect), compose them:
+    // either signal aborting should cancel this request.
+    if (callerSignal) {
+      const onCallerAbort = () => controller.abort();
+      callerSignal.addEventListener("abort", onCallerAbort, { once: true });
+      // Clean up listener when our controller aborts independently.
+      controller.signal.addEventListener(
+        "abort",
+        () => callerSignal.removeEventListener("abort", onCallerAbort),
+        { once: true },
+      );
+    }
+
+    return controller.signal;
+  }
+
+  /** Release an interruption scope when the request finishes (normally or via abort). */
+  private releaseScope(
+    scopeKey: string | undefined,
+    signal: AbortSignal | undefined,
+  ): void {
+    if (!scopeKey) return;
+    // Only remove if we're still the active occupant (another request may have
+    // already preempted us and replaced the entry).
+    const current = this.activeScopes.get(scopeKey);
+    if (current && current.signal === signal) {
+      this.activeScopes.delete(scopeKey);
+    }
   }
 
   resetThread(threadId: string): void {
@@ -1057,6 +1136,13 @@ export class AgentCoreServiceHarness {
       let streamedOutput = "";
 
       for await (const event of stream) {
+        // Active abort check — covers cases where the underlying LLM stream
+        // does not natively respect the AbortSignal (e.g. some LangChain providers).
+        if (signal?.aborted) {
+          log.info("stream.aborted", { traceId, threadId });
+          break;
+        }
+
         const maybeResult = maybeGetInvokeResult(event);
         if (maybeResult) {
           lastResult = maybeResult;

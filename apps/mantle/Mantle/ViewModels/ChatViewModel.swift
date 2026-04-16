@@ -50,7 +50,7 @@ final class ChatViewModel {
         let task = Task.detached { [weak self] in
             MantleLog.chat.info("stream.start threadId=\(threadId) inputLen=\(text.count) images=\(images.count) context=\(context != nil ? "yes" : "none")")
             MantleLog.runtime("chat", "stream.start threadId=\(threadId) inputLen=\(text.count) images=\(images.count) context=\(context != nil ? "yes" : "none")")
-            let stream = await client.streamRun(threadId: threadId, input: text, context: context, images: images)
+            let stream = await client.streamRun(threadId: threadId, input: text, context: context, images: images, scopeKey: "chat:\(threadId)")
 
             for await event in stream {
                 if Task.isCancelled { break }
@@ -81,7 +81,7 @@ final class ChatViewModel {
         let client = sseClient
         let task = Task.detached { [weak self] in
             MantleLog.runtime("chat", "stream.resume threadId=\(threadId)")
-            let stream = await client.streamResume(threadId: threadId, resume: response)
+            let stream = await client.streamResume(threadId: threadId, resume: response, scopeKey: "chat:\(threadId)")
 
             for await event in stream {
                 if Task.isCancelled { break }
