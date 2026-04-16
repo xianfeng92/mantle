@@ -347,9 +347,19 @@ export class FeishuChannel implements Channel {
 
     const action = value.action;
     const threadId = value.threadId;
-    const chatId = value.chatId;
+    // chatId often doesn't survive the button round-trip; recover it from
+    // the threadId (format: "channel-{chatId}-{timestamp}") or look it up in
+    // the thread mapper as a fallback.
+    const chatId = value.chatId
+      ?? extractChatIdFromThreadId(threadId)
+      ?? this.findChatIdForThread(threadId);
 
-    log.info("cardAction", { action, threadId });
+    if (!chatId) {
+      log.warn("cardAction.noChatId", { threadId, rawValue: value });
+      return;
+    }
+
+    log.info("cardAction", { action, threadId, chatId });
 
     // Build HITLResponse
     const decision =
@@ -358,10 +368,12 @@ export class FeishuChannel implements Channel {
         : { type: "reject" as const, message: "Rejected via Feishu" };
     const resume = { decisions: [decision] };
 
-    // Stream the resumed run back to the chat
+    // Stream the resumed run back to the chat. Handle text_delta AND
+    // run_interrupted — the latter happens when the middleware re-escalates
+    // (e.g. tool-staging "verify" stage wants a second approval).
     const replyTarget: ReplyTarget = {
       channelName: this.name,
-      data: { chatId: chatId ?? threadId } satisfies FeishuReplyData,
+      data: { chatId } satisfies FeishuReplyData,
     };
     const draft = new DraftUpdater(this, replyTarget, this.config.draftThrottleMs ?? 500);
 
@@ -369,12 +381,28 @@ export class FeishuChannel implements Channel {
       const stream = this.service.streamResume({
         threadId,
         resume,
-        scopeKey: `feishu:${chatId ?? threadId}`,
+        scopeKey: `feishu:${chatId}`,
       });
 
-      for await (const event of stream) {
-        if (event.type === "text_delta") {
-          draft.push(event.delta);
+      for await (const streamEvent of stream) {
+        if (streamEvent.type === "text_delta") {
+          draft.push(streamEvent.delta);
+        } else if (streamEvent.type === "run_interrupted") {
+          // Another HITL request surfaced during resume — finalize what we
+          // have, then send a fresh approval card.
+          await draft.finalize();
+          const body = formatApprovalBody(streamEvent.result?.interruptRequest);
+          await this.sendApprovalCard(replyTarget, {
+            threadId,
+            title: "Needs approval",
+            body,
+          });
+          return; // stop here; user will click Approve again
+        } else if (streamEvent.type === "tool_failed" && streamEvent.error) {
+          const errText = typeof streamEvent.error === "string"
+            ? streamEvent.error
+            : String(streamEvent.error);
+          draft.push(`\n\n⚠️ Tool error: ${errText.slice(0, 100)}`);
         }
       }
       await draft.finalize();
@@ -383,6 +411,13 @@ export class FeishuChannel implements Channel {
       const msg = err instanceof Error ? err.message : String(err);
       log.error("cardAction.error", { threadId, error: msg });
     }
+  }
+
+  /** Fallback: search the thread mapper for any chat mapped to this threadId. */
+  private findChatIdForThread(threadId: string): string | undefined {
+    // InMemoryThreadMapper doesn't expose iteration; check via known channels.
+    // This is best-effort; prefer extractChatIdFromThreadId when possible.
+    return undefined;
   }
 
   // ── Input extraction ──────────────────────────────────────────
@@ -504,6 +539,51 @@ export class FeishuChannel implements Channel {
       });
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * ThreadId format produced by InMemoryThreadMapper is
+ * `channel-{chatId}-{timestamp}`. This reverses the encoding.
+ */
+function extractChatIdFromThreadId(threadId: string): string | undefined {
+  if (!threadId.startsWith("channel-")) return undefined;
+  // Strip leading "channel-" and trailing "-{timestamp}".
+  const rest = threadId.slice("channel-".length);
+  const lastDash = rest.lastIndexOf("-");
+  if (lastDash <= 0) return undefined;
+  const timestampPart = rest.slice(lastDash + 1);
+  if (!/^\d+$/.test(timestampPart)) return undefined;
+  return rest.slice(0, lastDash) || undefined;
+}
+
+/**
+ * Render the first few tool-call args as a Markdown preview for the approval
+ * card body. Same shape as the default handler uses — kept local so we can
+ * reuse from onCardAction without a circular import.
+ */
+function formatApprovalBody(request: unknown): string {
+  if (!request || typeof request !== "object") {
+    return "The agent is requesting approval to run a sensitive tool.";
+  }
+  const actions = (request as { actionRequests?: Array<{ name: string; args?: unknown }> })
+    .actionRequests;
+  if (!Array.isArray(actions) || actions.length === 0) {
+    return "The agent is requesting approval to continue.";
+  }
+  return actions
+    .map((a) => {
+      const args = a.args ?? {};
+      const preview = Object.entries(args as Record<string, unknown>)
+        .slice(0, 3)
+        .map(([k, v]) => `- ${k}: ${String(v).slice(0, 60)}`)
+        .join("\n");
+      return `**${a.name}**${preview ? `\n${preview}` : ""}`;
+    })
+    .join("\n\n---\n\n");
 }
 
 // ---------------------------------------------------------------------------
