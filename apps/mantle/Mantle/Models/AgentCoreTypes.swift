@@ -162,6 +162,49 @@ struct GeneralPurposeAgent: Codable, Sendable {
     let inheritedSkillSources: [String]
 }
 
+// MARK: - Heartbeat
+
+struct HeartbeatAnnouncePayload: Codable, Hashable, Sendable {
+    let channels: [String]
+    let urgency: String?
+}
+
+struct HeartbeatTaskDefPayload: Codable, Hashable, Sendable, Identifiable {
+    let id: String
+    let schedule: String
+    let handler: String
+    let prompt: String?
+    let announce: HeartbeatAnnouncePayload?
+    let tags: [String]?
+    let enabled: Bool?
+}
+
+struct HeartbeatTaskStatePayload: Codable, Hashable, Sendable {
+    let lastFiredAt: String?
+    let lastStatus: String?
+    let lastReturnId: String?
+    let lastError: String?
+}
+
+struct HeartbeatTaskStatus: Codable, Hashable, Sendable, Identifiable {
+    let def: HeartbeatTaskDefPayload
+    let state: HeartbeatTaskStatePayload
+    let nextFireAt: String?
+
+    var id: String { def.id }
+}
+
+struct HeartbeatTasksResponse: Codable, Sendable {
+    let enabled: Bool
+    let tasks: [HeartbeatTaskStatus]
+    let parseErrors: [String]
+}
+
+struct HeartbeatRunNowResponse: Codable, Sendable {
+    let taskId: String
+    let state: HeartbeatTaskStatePayload
+}
+
 // MARK: - Diagnostics
 
 struct DiagnosticsResponse: Codable, Sendable {

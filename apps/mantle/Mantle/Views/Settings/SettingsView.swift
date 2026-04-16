@@ -40,6 +40,11 @@ struct SettingsView: View {
                     Label("Skills", systemImage: "puzzlepiece.extension")
                 }
 
+            heartbeatTab
+                .tabItem {
+                    Label("Heartbeat", systemImage: "waveform.path.ecg")
+                }
+
             rollbackTab
                 .tabItem {
                     Label("Rollback", systemImage: "arrow.uturn.backward")
@@ -486,6 +491,12 @@ struct SettingsView: View {
     private var skillsTab: some View {
         SkillsPanel(client: appVM.client)
             .padding()
+    }
+
+    // MARK: - Heartbeat Tab
+
+    private var heartbeatTab: some View {
+        HeartbeatPanel(client: appVM.client)
     }
 
     // MARK: - Rollback Tab

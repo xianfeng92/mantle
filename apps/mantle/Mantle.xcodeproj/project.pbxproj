@@ -10,6 +10,7 @@
 		048884A4E3CB7B5FC00E6F4C /* ContextDaemon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5750D23598ADFD1EC5E0FF7D /* ContextDaemon.swift */; };
 		0B48ABDBAB11E48374D5DDF5 /* HITLTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70C6D3C37CBE2A9D3EBFDEE4 /* HITLTypes.swift */; };
 		0CB26317CC20C51294EAA197 /* MantleLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7BEF76C0D21A4381BD27E4A /* MantleLog.swift */; };
+		0CBA0C3EE9DC4F90C062614F /* HeartbeatPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1CCA5004AC11EFEC136923B /* HeartbeatPanel.swift */; };
 		0FEE335D261DE2F9743BAF27 /* RollbackPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87402C59930F94D3EAF7098C /* RollbackPanel.swift */; };
 		1FE6C163CCA5F7B90004EEFF /* PersistentModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39730E7FEE8AC1E4AE4731BE /* PersistentModels.swift */; };
 		21961DC8C3A214DFD9B053D5 /* PermissionGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1B71DCC735498D37817CE73 /* PermissionGuideView.swift */; };
@@ -148,6 +149,7 @@
 		974E0073CD0E7651FAC994BD /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		9C00F5CFFF4F4D74466A6994 /* BackendProcessManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendProcessManager.swift; sourceTree = "<group>"; };
 		9ED308334E1C47487E0BC96B /* SpotlightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightService.swift; sourceTree = "<group>"; };
+		A1CCA5004AC11EFEC136923B /* HeartbeatPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartbeatPanel.swift; sourceTree = "<group>"; };
 		A5685D0E40B143BC0B9FBB30 /* RuntimeLogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeLogStore.swift; sourceTree = "<group>"; };
 		A6BB1449F6D62AA815826BA6 /* ThreadState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadState.swift; sourceTree = "<group>"; };
 		A7B66AD98ADA78B3056C6046 /* InboxButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxButton.swift; sourceTree = "<group>"; };
@@ -300,6 +302,7 @@
 			isa = PBXGroup;
 			children = (
 				3AA68B1BBA2B75B155BA7F0E /* DiagnosticsPanel.swift */,
+				A1CCA5004AC11EFEC136923B /* HeartbeatPanel.swift */,
 				C1B71DCC735498D37817CE73 /* PermissionGuideView.swift */,
 				87402C59930F94D3EAF7098C /* RollbackPanel.swift */,
 				2CBE0D6B3507797A7CB1F6C0 /* SettingsView.swift */,
@@ -537,6 +540,7 @@
 				892127DA03E2144EBF38961F /* GenerationStatsBar.swift in Sources */,
 				75596C27CCB70110C86C938C /* GlobalHotkeyService.swift in Sources */,
 				0B48ABDBAB11E48374D5DDF5 /* HITLTypes.swift in Sources */,
+				0CBA0C3EE9DC4F90C062614F /* HeartbeatPanel.swift in Sources */,
 				AEA65628024E444641021902 /* IdleTimeMonitor.swift in Sources */,
 				3DEED91D46BE44E0552FB760 /* InboxButton.swift in Sources */,
 				B10147B0D5C257C0D66CC208 /* InboxPopover.swift in Sources */,

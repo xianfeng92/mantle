@@ -110,6 +110,23 @@ actor AgentCoreClient {
         return try await post("run-snapshots/\(traceId)/restore", body: Body(dryRun: dryRun, paths: paths))
     }
 
+    // MARK: - Heartbeat
+
+    func heartbeatTasks() async throws -> HeartbeatTasksResponse {
+        try await get("heartbeat/tasks")
+    }
+
+    func heartbeatReload() async throws -> HeartbeatTasksResponse {
+        struct Empty: Encodable {}
+        return try await post("heartbeat/reload", body: Empty())
+    }
+
+    func heartbeatRunNow(taskId: String) async throws -> HeartbeatRunNowResponse {
+        struct Empty: Encodable {}
+        let encoded = taskId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? taskId
+        return try await post("heartbeat/tasks/\(encoded)/run-now", body: Empty())
+    }
+
     // MARK: - Moves / Rollback
 
     func moves(days: Int = 7) async throws -> MovesResponse {
