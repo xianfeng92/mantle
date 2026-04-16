@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
-import { AIMessage, BaseMessage, RemoveMessage, ToolMessage } from "@langchain/core/messages";
+import { AIMessage, BaseMessage, HumanMessage, RemoveMessage, ToolMessage } from "@langchain/core/messages";
 import type { StreamEvent } from "@langchain/core/types/stream";
 import { Command } from "@langchain/langgraph";
 
@@ -40,6 +40,21 @@ import type {
 import { extractTextFromInput } from "./types.js";
 
 const log = createLogger("service");
+
+export interface ThreadHealth {
+  threadId: string;
+  messageCount: number;
+  userTurns: number;
+  assistantTurns: number;
+  estimatedTokens: number;
+  contextWindowHint: number;
+  /** Rough percentage of context window estimated to be in use. 0-100. */
+  usagePercent: number;
+  /** Reserved for future use — currently always null. */
+  lastActivityAt: string | null;
+  /** False when the underlying agent backend doesn't expose getState. */
+  supported: boolean;
+}
 
 export interface ServiceInterruptContext {
   traceId: string;
@@ -402,6 +417,95 @@ export class AgentCoreServiceHarness {
 
   getLastMemoryInjection(threadId: string): MemoryInjectionSnapshot | undefined {
     return this.lastMemoryInjectionByThread.get(threadId);
+  }
+
+  /**
+   * Lightweight health snapshot for a thread.
+   *
+   * Reads the checkpointed message history via `agent.getState` and computes
+   * rough counts so users (or slash commands) can decide whether to start a
+   * fresh thread. All sizes are estimates — token counts go through the
+   * same heuristic `memory.ts` uses.
+   */
+  async getThreadHealth(threadId: string): Promise<ThreadHealth> {
+    if (typeof this.runtime.agent.getState !== "function") {
+      return {
+        threadId,
+        messageCount: 0,
+        userTurns: 0,
+        assistantTurns: 0,
+        estimatedTokens: 0,
+        contextWindowHint: this.runtime.settings.contextWindowTokensHint,
+        usagePercent: 0,
+        lastActivityAt: null,
+        supported: false,
+      };
+    }
+
+    try {
+      const state = await this.runtime.agent.getState({
+        configurable: { thread_id: threadId },
+      });
+      const rawMessages = (state?.values as { messages?: unknown[] } | undefined)?.messages ?? [];
+      const messages = Array.isArray(rawMessages) ? (rawMessages as BaseMessage[]) : [];
+      let userTurns = 0;
+      let assistantTurns = 0;
+      let tokenSum = 0;
+      for (const m of messages) {
+        const text = contentToText(m.content);
+        if (text) tokenSum += estimateTokens(text);
+        if (HumanMessage.isInstance(m)) userTurns += 1;
+        else if (AIMessage.isInstance(m)) assistantTurns += 1;
+      }
+      const windowHint = this.runtime.settings.contextWindowTokensHint;
+      const usagePercent = windowHint > 0
+        ? Math.min(100, Math.round((tokenSum / windowHint) * 100))
+        : 0;
+      return {
+        threadId,
+        messageCount: messages.length,
+        userTurns,
+        assistantTurns,
+        estimatedTokens: tokenSum,
+        contextWindowHint: windowHint,
+        usagePercent,
+        lastActivityAt: null, // checkpointer doesn't expose a cheap way; leave null
+        supported: true,
+      };
+    } catch {
+      return {
+        threadId,
+        messageCount: 0,
+        userTurns: 0,
+        assistantTurns: 0,
+        estimatedTokens: 0,
+        contextWindowHint: this.runtime.settings.contextWindowTokensHint,
+        usagePercent: 0,
+        lastActivityAt: null,
+        supported: true,
+      };
+    }
+  }
+
+  /**
+   * Hard-forget a thread: clear in-memory caches AND delete the checkpoint
+   * row so the next message on this threadId starts fresh. Safe to call even
+   * if the thread has never been used.
+   */
+  async forgetThread(threadId: string): Promise<void> {
+    this.resetThread(threadId);
+    this.lastMemoryInjectionByThread.delete(threadId);
+    const ckpt = this.runtime.checkpointer as { deleteThread?: (id: string) => Promise<void> };
+    if (typeof ckpt.deleteThread === "function") {
+      try {
+        await ckpt.deleteThread(threadId);
+      } catch (err) {
+        log.warn("forgetThread.deleteFailed", {
+          threadId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
   }
 
   async runOnce(options: RunOnceOptions): Promise<ServiceRunResult> {

@@ -34,6 +34,9 @@ export interface ThreadMapper {
 
   /** Get the threadId for a channel-specific chat identifier, if it exists. */
   get(channelChatId: string): string | undefined;
+
+  /** Drop the mapping so the next getOrCreate returns a fresh threadId. */
+  reset(channelChatId: string): void;
 }
 
 /**
@@ -53,5 +56,9 @@ export class InMemoryThreadMapper implements ThreadMapper {
 
   get(channelChatId: string): string | undefined {
     return this.map.get(channelChatId);
+  }
+
+  reset(channelChatId: string): void {
+    this.map.delete(channelChatId);
   }
 }

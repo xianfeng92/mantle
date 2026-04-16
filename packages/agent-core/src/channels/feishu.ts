@@ -233,6 +233,12 @@ export class FeishuChannel implements Channel {
     const { text, images } = await this.extractInput(message);
     if (!text && (!images || images.length === 0)) return;
 
+    // Slash commands — handled inline, never reach the dispatcher.
+    if (text && text.trim().startsWith("/")) {
+      await this.handleSlashCommand(chatId, text.trim());
+      return;
+    }
+
     const threadId = await this.threadMapper.getOrCreate(chatId);
     const replyTarget: ReplyTarget = {
       channelName: this.name,
@@ -254,6 +260,75 @@ export class FeishuChannel implements Channel {
     if (!this.dispatcher.enqueue(channelMessage)) {
       log.warn("enqueue.backpressure", { chatId });
       await this.sendTextMessage(chatId, "⚠️ Too many messages queued. Try again shortly.");
+    }
+  }
+
+  // ── Inbound: slash commands ───────────────────────────────────
+
+  private async handleSlashCommand(chatId: string, raw: string): Promise<void> {
+    const parts = raw.split(/\s+/);
+    const cmd = parts[0]!.toLowerCase();
+
+    switch (cmd) {
+      case "/new":
+      case "/reset": {
+        if (!this.service) {
+          await this.sendTextMessage(chatId, "⚠️ Service not ready");
+          return;
+        }
+        const oldThreadId = this.threadMapper.get(chatId);
+        if (oldThreadId) {
+          try {
+            await this.service.forgetThread(oldThreadId);
+          } catch {
+            // best-effort — continue anyway
+          }
+        }
+        this.threadMapper.reset(chatId);
+        await this.sendTextMessage(chatId, "✨ 已开新会话。之前的上下文已清空。");
+        return;
+      }
+
+      case "/info":
+      case "/status": {
+        if (!this.service) {
+          await this.sendTextMessage(chatId, "⚠️ Service not ready");
+          return;
+        }
+        const threadId = this.threadMapper.get(chatId);
+        if (!threadId) {
+          await this.sendTextMessage(chatId, "当前没有活跃会话。直接发消息就能开始。");
+          return;
+        }
+        const health = await this.service.getThreadHealth(threadId);
+        const lines = [
+          `📊 当前会话`,
+          `- 消息条数：${health.messageCount}（用户 ${health.userTurns} / 助手 ${health.assistantTurns}）`,
+          `- 估算 token：${health.estimatedTokens} / ${health.contextWindowHint}（${health.usagePercent}%）`,
+        ];
+        if (health.usagePercent >= 75) {
+          lines.push("", "⚠️ 上下文接近满，建议 `/new` 开新会话。");
+        }
+        await this.sendTextMessage(chatId, lines.join("\n"));
+        return;
+      }
+
+      case "/help":
+      case "/?": {
+        const help = [
+          "可用命令：",
+          "• `/new` 或 `/reset` — 开新会话，清空上下文",
+          "• `/info` 或 `/status` — 查看当前会话大小",
+          "• `/help` — 显示本说明",
+        ].join("\n");
+        await this.sendTextMessage(chatId, help);
+        return;
+      }
+
+      default: {
+        await this.sendTextMessage(chatId, `未知命令：${cmd}。发送 \`/help\` 查看可用命令。`);
+        return;
+      }
     }
   }
 

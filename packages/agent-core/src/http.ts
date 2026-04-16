@@ -1124,11 +1124,19 @@ export class AgentCoreHttpServer {
           return;
         }
 
-        this.service.resetThread(threadId);
-        if (typeof this.runtime.checkpointer.deleteThread === "function") {
-          await this.runtime.checkpointer.deleteThread(threadId);
-        }
+        await this.service.forgetThread(threadId);
         sendEmpty(response, 204, this.corsOrigin);
+        return;
+      }
+
+      if (method === "GET" && parts.length === 3 && parts[0] === "threads" && parts[2] === "health") {
+        const threadId = decodeURIComponent(parts[1] ?? "").trim();
+        if (!threadId) {
+          sendJson(response, 400, { error: "Thread id is required." }, this.corsOrigin);
+          return;
+        }
+        const health = await this.service.getThreadHealth(threadId);
+        sendJson(response, 200, health, this.corsOrigin);
         return;
       }
 
