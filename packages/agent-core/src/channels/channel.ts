@@ -109,4 +109,23 @@ export interface Channel {
 
   /** Cancel / delete the draft (streaming aborted). */
   cancelDraft(handle: DraftHandle): Promise<void>;
+
+  // -- Optional: HITL approval ---------------------------------------------
+
+  /**
+   * Optional. Send an interactive approval prompt. Platforms that can render
+   * buttons (Feishu / Slack / Discord) implement this; the channel's button
+   * callback should then route to `service.streamResume`.
+   *
+   * If not implemented, the default handler falls back to an inline text
+   * note telling the user to approve via another surface.
+   */
+  sendApprovalCard?(
+    target: ReplyTarget,
+    opts: {
+      threadId: string;
+      title: string;
+      body: string;
+    },
+  ): Promise<string | null>;
 }

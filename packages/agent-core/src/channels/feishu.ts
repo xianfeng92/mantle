@@ -143,14 +143,25 @@ export class FeishuChannel implements Channel {
 
   // ── Channel trait: send ───────────────────────────────────────
 
+  /**
+   * Send a complete, non-streaming text message. Used for short replies /
+   * error notifications that don't need streaming updates.
+   */
   async send(target: ReplyTarget, content: string): Promise<string | null> {
     const { chatId } = target.data as FeishuReplyData;
     return this.sendTextMessage(chatId, content);
   }
 
+  /**
+   * Create an interactive card as draft. Feishu's `im.v1.message.patch`
+   * only accepts interactive cards — plain text messages are immutable.
+   * So draft lifecycle must use cards, and the content is rendered as
+   * Markdown for proper formatting.
+   */
   async sendDraft(target: ReplyTarget, content: string): Promise<DraftHandle | null> {
     const { chatId } = target.data as FeishuReplyData;
-    const messageId = await this.sendTextMessage(chatId, content);
+    const card = buildStreamingCard(content, /* streaming */ true);
+    const messageId = await this.sendInteractiveCard(chatId, card);
     if (!messageId) return null;
     return {
       channelName: this.name,
@@ -160,17 +171,44 @@ export class FeishuChannel implements Channel {
 
   async updateDraft(handle: DraftHandle, content: string): Promise<void> {
     const { messageId } = handle.data as FeishuDraftData;
-    await this.patchMessage(messageId, content);
+    const card = buildStreamingCard(content, /* streaming */ true);
+    await this.patchCard(messageId, card);
   }
 
   async finalizeDraft(handle: DraftHandle, content: string): Promise<void> {
     const { messageId } = handle.data as FeishuDraftData;
-    await this.patchMessage(messageId, content);
+    const card = buildStreamingCard(content, /* streaming */ false);
+    await this.patchCard(messageId, card);
   }
 
   async cancelDraft(handle: DraftHandle): Promise<void> {
     const { messageId } = handle.data as FeishuDraftData;
-    await this.patchMessage(messageId, "⏹ (cancelled)");
+    const card = buildStreamingCard("⏹ (cancelled)", /* streaming */ false);
+    await this.patchCard(messageId, card);
+  }
+
+  /**
+   * Send an approval card (HITL). Returns the message id so the handler can
+   * await completion. The buttons' values encode action + threadId; clicking
+   * triggers the `card.action.trigger` callback which our onCardAction
+   * handler routes to `service.streamResume`.
+   */
+  async sendApprovalCard(
+    target: ReplyTarget,
+    opts: {
+      threadId: string;
+      title: string;
+      body: string;
+    },
+  ): Promise<string | null> {
+    const { chatId } = target.data as FeishuReplyData;
+    const card = buildApprovalCard({
+      threadId: opts.threadId,
+      chatId,
+      title: opts.title,
+      body: opts.body,
+    });
+    return this.sendInteractiveCard(chatId, card);
   }
 
   // ── Inbound: message ──────────────────────────────────────────
@@ -224,8 +262,13 @@ export class FeishuChannel implements Channel {
   private async onCardAction(event: FeishuCardActionEvent): Promise<void> {
     if (!this.service || !this.client) return;
 
-    const value = event.action?.value;
-    if (!value?.action || !value?.threadId) return;
+    // Feishu SDK payloads vary — value can arrive as a plain object OR as a
+    // JSON-encoded string, and some variants nest it under event.event.action.
+    const value = extractCardActionValue(event);
+    if (!value?.action || !value?.threadId) {
+      log.warn("cardAction.unparsed", { event: JSON.stringify(event).slice(0, 300) });
+      return;
+    }
 
     const action = value.action;
     const threadId = value.threadId;
@@ -351,14 +394,165 @@ export class FeishuChannel implements Channel {
     }
   }
 
-  private async patchMessage(messageId: string, text: string): Promise<void> {
+  private async sendInteractiveCard(chatId: string, card: unknown): Promise<string | null> {
+    try {
+      const response = await this.client.im.v1.message.create({
+        params: { receive_id_type: "chat_id" },
+        data: {
+          receive_id: chatId,
+          content: JSON.stringify(card),
+          msg_type: "interactive",
+        },
+      });
+      return response?.data?.message_id ?? null;
+    } catch (error) {
+      log.error("sendInteractiveCard.failed", {
+        chatId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  private async patchCard(messageId: string, card: unknown): Promise<void> {
     try {
       await this.client.im.v1.message.patch({
         path: { message_id: messageId },
-        data: { content: JSON.stringify({ text }) },
+        data: { content: JSON.stringify(card) },
       });
-    } catch {
-      // Update may fail if message is too old; silently ignore
+    } catch (err) {
+      // Most likely reason: message too old (cards >24h can't be patched).
+      // Log once at debug level but don't crash the stream.
+      log.debug("patchCard.failed", {
+        messageId,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Event payload helpers
+// ---------------------------------------------------------------------------
+
+interface ParsedCardActionValue {
+  action?: string;
+  threadId?: string;
+  chatId?: string;
+}
+
+/**
+ * Best-effort extraction of the button's value from a card.action.trigger
+ * event. Handles three observed shapes from the Feishu SDK:
+ *
+ *  1. event.action.value = { action, threadId, chatId }
+ *  2. event.action.value = '{"action":"approve", ...}'   (stringified)
+ *  3. event.event.action.value = ...                     (wrapped)
+ */
+function extractCardActionValue(event: unknown): ParsedCardActionValue | null {
+  if (!event || typeof event !== "object") return null;
+
+  // Shape 3: unwrap outer event.event
+  const unwrapped =
+    (event as { event?: unknown }).event && typeof (event as { event?: unknown }).event === "object"
+      ? (event as { event: unknown }).event
+      : event;
+
+  const action = (unwrapped as { action?: unknown }).action;
+  if (!action || typeof action !== "object") return null;
+  const rawValue = (action as { value?: unknown }).value;
+
+  if (!rawValue) return null;
+  if (typeof rawValue === "object") {
+    return rawValue as ParsedCardActionValue;
+  }
+  if (typeof rawValue === "string") {
+    try {
+      return JSON.parse(rawValue) as ParsedCardActionValue;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Card builders
+// ---------------------------------------------------------------------------
+
+/**
+ * Build an interactive card for streaming replies. When `streaming` is true
+ * a small "generating…" note is appended; when false the card is final.
+ *
+ * Uses the old-style card schema (config/header/elements) since that's what
+ * the SDK type stub exposes and what's widely supported. Markdown content
+ * is rendered by Feishu's `markdown` element.
+ */
+function buildStreamingCard(content: string, streaming: boolean): unknown {
+  const body = content.length > 0 ? content : "…";
+  const elements: unknown[] = [
+    {
+      tag: "markdown",
+      content: body,
+    },
+  ];
+  if (streaming) {
+    elements.push({
+      tag: "note",
+      elements: [
+        { tag: "plain_text", content: "Mantle · generating…" },
+      ],
+    });
+  }
+  return {
+    config: { wide_screen_mode: true, update_multi: true },
+    elements,
+  };
+}
+
+/**
+ * HITL approval card. Button values encode the routing so card.action.trigger
+ * can call service.streamResume with the right HITLResponse.
+ */
+function buildApprovalCard(opts: {
+  threadId: string;
+  chatId: string;
+  title: string;
+  body: string;
+}): unknown {
+  return {
+    config: { wide_screen_mode: true },
+    header: {
+      template: "orange",
+      title: { tag: "plain_text", content: opts.title },
+    },
+    elements: [
+      { tag: "markdown", content: opts.body },
+      {
+        tag: "action",
+        actions: [
+          {
+            tag: "button",
+            text: { tag: "plain_text", content: "Approve" },
+            type: "primary",
+            value: {
+              action: "approve",
+              threadId: opts.threadId,
+              chatId: opts.chatId,
+            },
+          },
+          {
+            tag: "button",
+            text: { tag: "plain_text", content: "Reject" },
+            type: "danger",
+            value: {
+              action: "reject",
+              threadId: opts.threadId,
+              chatId: opts.chatId,
+            },
+          },
+        ],
+      },
+    ],
+  };
 }

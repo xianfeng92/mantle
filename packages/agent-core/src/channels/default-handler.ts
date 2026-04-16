@@ -58,7 +58,7 @@ export function createDefaultHandler(
 
       for await (const event of stream) {
         if (signal.aborted) break;
-        handleEvent(event, draft, channel, message);
+        await handleEvent(event, draft, channel, message);
       }
 
       await draft.finalize();
@@ -107,21 +107,19 @@ function buildInput(message: ChannelMessage): UserInput {
   return blocks;
 }
 
-function handleEvent(
+async function handleEvent(
   event: ServiceStreamEvent,
   draft: DraftUpdater,
-  _channel: Channel,
-  _message: ChannelMessage,
-): void {
+  channel: Channel,
+  message: ChannelMessage,
+): Promise<void> {
   switch (event.type) {
     case "text_delta":
       draft.push(event.delta);
       break;
 
     case "run_interrupted":
-      // TODO: send HITL approval card via channel.send (per-channel format).
-      // For now, append a note to the draft.
-      draft.push("\n\n⏸ [Needs approval — approve via Mantle app]");
+      await sendApprovalOrFallback(event, draft, channel, message);
       break;
 
     case "tool_failed":
@@ -135,4 +133,61 @@ function handleEvent(
     // text_delta is the main event; others (run_started, tool_started, etc.)
     // are ignored for now — they don't affect the reply text.
   }
+}
+
+async function sendApprovalOrFallback(
+  event: Extract<ServiceStreamEvent, { type: "run_interrupted" }>,
+  draft: DraftUpdater,
+  channel: Channel,
+  message: ChannelMessage,
+): Promise<void> {
+  const request = event.result.interruptRequest;
+  const body = formatApprovalBody(request);
+
+  // Channels that support interactive approval: finalize the current draft
+  // with whatever has been streamed so far, then send a separate card.
+  if (typeof channel.sendApprovalCard === "function") {
+    try {
+      await draft.finalize();
+    } catch {
+      // best-effort
+    }
+    try {
+      await channel.sendApprovalCard(message.replyTarget, {
+        threadId: message.threadId,
+        title: "Needs approval",
+        body,
+      });
+      return;
+    } catch (err) {
+      log.warn("sendApprovalCard.failed", {
+        channelName: message.channelName,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      // Fall through to inline fallback.
+    }
+  }
+
+  // Fallback — append inline note to the draft.
+  draft.push("\n\n⏸ Needs approval — approve via the Mantle app");
+}
+
+function formatApprovalBody(request: unknown): string {
+  if (!request || typeof request !== "object") {
+    return "The agent is requesting approval to run a sensitive tool.";
+  }
+  const actions = (request as { actionRequests?: Array<{ name: string; args?: unknown }> })
+    .actionRequests;
+  if (!Array.isArray(actions) || actions.length === 0) {
+    return "The agent is requesting approval to continue.";
+  }
+  const lines = actions.map((a) => {
+    const args = a.args ?? {};
+    const preview = Object.entries(args as Record<string, unknown>)
+      .slice(0, 3)
+      .map(([k, v]) => `- ${k}: ${String(v).slice(0, 60)}`)
+      .join("\n");
+    return `**${a.name}**${preview ? `\n${preview}` : ""}`;
+  });
+  return lines.join("\n\n---\n\n");
 }

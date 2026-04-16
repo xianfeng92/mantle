@@ -21,6 +21,14 @@ export class DraftUpdater {
   private pendingFlush: ReturnType<typeof setTimeout> | null = null;
   private finalized = false;
   private cancelled = false;
+  /**
+   * In-flight lock: true while a sendDraft/updateDraft is awaiting the
+   * platform API. Prevents two concurrent flushes from both calling
+   * sendDraft (which would create two draft messages on Feishu).
+   */
+  private flushing = false;
+  /** Text buffer at the last flush — used to detect new content. */
+  private flushedLength = 0;
 
   constructor(
     channel: Channel,
@@ -48,6 +56,9 @@ export class DraftUpdater {
     this.finalized = true;
     this.clearPendingFlush();
 
+    // Wait for any in-flight flush to settle so we don't race with it.
+    await this.waitForFlushIdle();
+
     if (this.handle) {
       await this.channel.finalizeDraft(this.handle, this.buffer);
     } else if (this.buffer) {
@@ -62,8 +73,17 @@ export class DraftUpdater {
     this.cancelled = true;
     this.clearPendingFlush();
 
+    await this.waitForFlushIdle();
+
     if (this.handle) {
       await this.channel.cancelDraft(this.handle);
+    }
+  }
+
+  private async waitForFlushIdle(): Promise<void> {
+    // Cheap spin-wait (flushes are short HTTP calls, ~100-300ms).
+    while (this.flushing) {
+      await new Promise((r) => setTimeout(r, 20));
     }
   }
 
@@ -95,12 +115,32 @@ export class DraftUpdater {
 
   private async flush(): Promise<void> {
     if (this.finalized || this.cancelled || !this.buffer) return;
-    this.lastUpdateTime = Date.now();
+    // Re-entrancy guard. If another flush is already awaiting the channel
+    // API, don't start a second one — the new content will be picked up
+    // by the next scheduled flush after this one resolves.
+    if (this.flushing) {
+      this.scheduleFlush();
+      return;
+    }
+    // Nothing new since last flush → skip to avoid redundant API calls.
+    if (this.buffer.length === this.flushedLength) return;
 
-    if (!this.handle) {
-      this.handle = await this.channel.sendDraft(this.target, this.buffer);
-    } else {
-      await this.channel.updateDraft(this.handle, this.buffer);
+    this.flushing = true;
+    this.lastUpdateTime = Date.now();
+    const snapshot = this.buffer;
+    try {
+      if (!this.handle) {
+        this.handle = await this.channel.sendDraft(this.target, snapshot);
+      } else {
+        await this.channel.updateDraft(this.handle, snapshot);
+      }
+      this.flushedLength = snapshot.length;
+    } finally {
+      this.flushing = false;
+      // If more content arrived while we were flushing, kick another round.
+      if (!this.finalized && !this.cancelled && this.buffer.length > this.flushedLength) {
+        this.scheduleFlush();
+      }
     }
   }
 }
