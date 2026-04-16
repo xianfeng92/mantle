@@ -30,6 +30,7 @@ export interface AgentCoreSettings {
   heartbeatStatePath: string;
   heartbeatEnabled: boolean;
   heartbeatTickIntervalSec: number;
+  modelSupportsVision: boolean;
   httpHost: string;
   httpPort: number;
   virtualMode: boolean;
@@ -124,6 +125,21 @@ function inferMonorepoSourcePaths(
   return [path.relative(workspaceDir, candidate) || "."];
 }
 
+/**
+ * Infer whether the model accepts image_url content blocks.
+ * Known vision models get true; everything else (including Gemma) gets false.
+ * Override with AGENT_CORE_MODEL_SUPPORTS_VISION=true.
+ */
+function inferModelVision(model: string, envOverride: string | undefined): boolean {
+  if (envOverride !== undefined) {
+    return parseBoolean(envOverride, false);
+  }
+  const lower = model.toLowerCase();
+  // Claude 3+ models, GPT-4V/o, Gemini Pro Vision
+  if (/claude-3|gpt-4[^-]*[ov]|gpt-4o|gemini.*pro/i.test(lower)) return true;
+  return false;
+}
+
 export function loadSettings(options: LoadSettingsOptions = {}): AgentCoreSettings {
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? process.env;
@@ -205,6 +221,7 @@ export function loadSettings(options: LoadSettingsOptions = {}): AgentCoreSettin
       env.AGENT_CORE_HEARTBEAT_TICK_INTERVAL_SEC,
       30,
     ),
+    modelSupportsVision: inferModelVision(model, env.AGENT_CORE_MODEL_SUPPORTS_VISION),
     httpHost: env.AGENT_CORE_HTTP_HOST || "127.0.0.1",
     httpPort: parseNumber(env.AGENT_CORE_HTTP_PORT, 8787),
     virtualMode: parseBoolean(env.AGENT_CORE_VIRTUAL_MODE, true),

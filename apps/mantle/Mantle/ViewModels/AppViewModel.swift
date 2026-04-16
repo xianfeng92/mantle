@@ -87,6 +87,7 @@ final class AppViewModel {
     // MARK: - Speech
 
     let speechService = SpeechService()
+    let mediaPipeline = MediaPipeline()
 
     // MARK: - Computer Use
 
@@ -487,9 +488,22 @@ final class AppViewModel {
         // Capture current environment context for the LLM
         let context = buildRunContext(taskMode: threads[index].taskMode)
 
-        // Start streaming with context + images
-        chatVM.send(text: text, threadId: threadId, context: context, images: allImages) { [weak self] update in
-            self?.applyStreamUpdate(threadId: threadId, update: update)
+        // Media pipeline: run Vision OCR on attached images, then send enriched text.
+        // OCR happens off the main thread (MediaPipeline is an actor). The original
+        // image_url blocks are still sent — agent-core strips them for non-vision
+        // models; vision models get both the OCR text AND the raw image.
+        if allImages.isEmpty {
+            chatVM.send(text: text, threadId: threadId, context: context, images: []) { [weak self] update in
+                self?.applyStreamUpdate(threadId: threadId, update: update)
+            }
+        } else {
+            Task {
+                let enrichedText = await mediaPipeline.enrichText(text, withImages: allImages)
+                MantleLog.runtime("app", "[SEND] OCR enriched text length=\(enrichedText.count) from \(allImages.count) image(s)")
+                chatVM.send(text: enrichedText, threadId: threadId, context: context, images: allImages) { [weak self] update in
+                    self?.applyStreamUpdate(threadId: threadId, update: update)
+                }
+            }
         }
     }
 

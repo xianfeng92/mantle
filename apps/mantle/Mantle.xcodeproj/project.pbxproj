@@ -48,6 +48,7 @@
 		97AC3E846C741B6DA2EDF92F /* SSEStreamClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E688DF712EFC8EACF34A6CB /* SSEStreamClient.swift */; };
 		A39A52ECB526B83A66E8EF32 /* LaunchAtLoginManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5AEB59363DF4558A215C469 /* LaunchAtLoginManager.swift */; };
 		AD42AE61887CF1B759EF425D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CBE0D6B3507797A7CB1F6C0 /* SettingsView.swift */; };
+		AE70842CE8572599CD87E76E /* MediaPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6155A50AF885A3D4194ABF21 /* MediaPipeline.swift */; };
 		AEA65628024E444641021902 /* IdleTimeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6290F70530A37E25812E9BB4 /* IdleTimeMonitor.swift */; };
 		AFC5A745074F97A3180A38D2 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 974E0073CD0E7651FAC994BD /* NotificationManager.swift */; };
 		B10147B0D5C257C0D66CC208 /* InboxPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCE6E0AB12D9ABFB8FC08190 /* InboxPopover.swift */; };
@@ -65,6 +66,7 @@
 		CA29B0A7A2A102531C603671 /* WindowTitleMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000136CB4E7FE8F68E76853A /* WindowTitleMonitor.swift */; };
 		CA3567968A88ACF408D17CC2 /* DiagnosticsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AA68B1BBA2B75B155BA7F0E /* DiagnosticsPanel.swift */; };
 		CD1DD0BBF683622EC46E894C /* AgentCoreTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35E45DE9E25C06D07D28EFD5 /* AgentCoreTypes.swift */; };
+		CEB41E2235DD30DAE6E2A484 /* MediaPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34B4DF5C1A7F01D4CB1F0032 /* MediaPipelineTests.swift */; };
 		D1A16770E51B8B13F85E7506 /* TextSelectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D1698678A2F298EEAC38830 /* TextSelectionService.swift */; };
 		D515790EC9BEDB8B3D4F93D1 /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3692CFC469404097215AF226 /* SpeechService.swift */; };
 		DAFE95D75897E59FEF5E601E /* AXNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DE61F72677918C7872C33F0 /* AXNode.swift */; };
@@ -108,6 +110,7 @@
 		2DE61F72677918C7872C33F0 /* AXNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AXNode.swift; sourceTree = "<group>"; };
 		2E3F61AC2CB03ECF24DFDE7E /* DesignConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignConstants.swift; sourceTree = "<group>"; };
 		301E2959B4B2256894FAF519 /* SSELineParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSELineParserTests.swift; sourceTree = "<group>"; };
+		34B4DF5C1A7F01D4CB1F0032 /* MediaPipelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipelineTests.swift; sourceTree = "<group>"; };
 		35E45DE9E25C06D07D28EFD5 /* AgentCoreTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCoreTypes.swift; sourceTree = "<group>"; };
 		3692CFC469404097215AF226 /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
 		39730E7FEE8AC1E4AE4731BE /* PersistentModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentModels.swift; sourceTree = "<group>"; };
@@ -125,6 +128,7 @@
 		5CBFFB68E6C3C82A8C79B01B /* InputBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBridge.swift; sourceTree = "<group>"; };
 		5D4151201DF3BFA52DADEC70 /* StreamEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamEvent.swift; sourceTree = "<group>"; };
 		5DE82FE38BB77A0069F839A1 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
+		6155A50AF885A3D4194ABF21 /* MediaPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipeline.swift; sourceTree = "<group>"; };
 		6290F70530A37E25812E9BB4 /* IdleTimeMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdleTimeMonitor.swift; sourceTree = "<group>"; };
 		63A4AF7CA1ADD62F0861014D /* TwitterBookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TwitterBookmarkStore.swift; sourceTree = "<group>"; };
 		684B03A43EB820C4F76E3112 /* MantleApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MantleApp.swift; sourceTree = "<group>"; };
@@ -219,6 +223,7 @@
 				F656794427CFC293DA3F694E /* GlobalHotkeyService.swift */,
 				71F2838679D15664E1110329 /* KeychainService.swift */,
 				C5AEB59363DF4558A215C469 /* LaunchAtLoginManager.swift */,
+				6155A50AF885A3D4194ABF21 /* MediaPipeline.swift */,
 				974E0073CD0E7651FAC994BD /* NotificationManager.swift */,
 				2B38B4038D398B1A79F69656 /* PermissionManager.swift */,
 				561FCC70F9BC76F3D0441B63 /* ReturnsService.swift */,
@@ -397,6 +402,7 @@
 		DF3A86C146325DC59DED838C /* MantleTests */ = {
 			isa = PBXGroup;
 			children = (
+				34B4DF5C1A7F01D4CB1F0032 /* MediaPipelineTests.swift */,
 				0E6CC632613EFD7FE4D1FD8A /* ReturnsTypesTests.swift */,
 				301E2959B4B2256894FAF519 /* SSELineParserTests.swift */,
 			);
@@ -553,6 +559,7 @@
 				0CB26317CC20C51294EAA197 /* MantleLog.swift in Sources */,
 				FCCE9112CF20C5E26DD7284D /* MantleShortcuts.swift in Sources */,
 				E15757B029238CBBFCA106B4 /* MarkdownRenderer.swift in Sources */,
+				AE70842CE8572599CD87E76E /* MediaPipeline.swift in Sources */,
 				C908275EC2F6BCEE985FF478 /* MessageBubble.swift in Sources */,
 				AFC5A745074F97A3180A38D2 /* NotificationManager.swift in Sources */,
 				21961DC8C3A214DFD9B053D5 /* PermissionGuideView.swift in Sources */,
@@ -590,6 +597,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CEB41E2235DD30DAE6E2A484 /* MediaPipelineTests.swift in Sources */,
 				60AA22CA2D587E62944FC3BD /* ReturnsTypesTests.swift in Sources */,
 				23473D60C40864543EBD4771 /* SSELineParserTests.swift in Sources */,
 			);

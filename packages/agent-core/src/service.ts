@@ -552,18 +552,24 @@ export class AgentCoreServiceHarness {
       return [{ role: "user", content: enrichedText }];
     }
 
-    // Multimodal path — rebuild content blocks with enriched text + original image blocks
+    // Multimodal path — rebuild content blocks with enriched text + original image blocks.
+    // For non-vision models (Gemma, etc.) image blocks are stripped — the client-side
+    // media pipeline has already injected [Image: OCR text] into the text portion.
     const imageBlocks = input.filter(
       (b): b is Extract<ContentBlock, { type: "image_url" }> => b.type === "image_url",
     );
+    const supportsVision = this.runtime.settings.modelSupportsVision;
+    const keptImages = supportsVision ? imageBlocks : [];
     const content: ContentBlock[] = [
       { type: "text", text: enrichedText },
-      ...imageBlocks,
+      ...keptImages,
     ];
     log.debug("multimodal.input", {
       threadId,
       textBlocks: 1,
       imageBlocks: imageBlocks.length,
+      keptImages: keptImages.length,
+      supportsVision,
     });
     return [{ role: "user", content }];
   }
