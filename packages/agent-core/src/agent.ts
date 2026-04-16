@@ -58,6 +58,8 @@ import { createLogger } from "./logger.js";
 import { JsonlTraceRecorder, type TraceRecorder } from "./tracing.js";
 import { MemoryStore } from "./memory.js";
 import { ReturnDispatcher, ReturnStore } from "./returns.js";
+import { HeartbeatEngine } from "./heartbeat/engine.js";
+import { AgentCoreServiceHarness } from "./service.js";
 import { createSandboxMiddleware, type SandboxConfig } from "./sandbox.js";
 import { RunSnapshotsStore } from "./run-snapshots.js";
 import type { InvokeResultLike } from "./types.js";
@@ -122,6 +124,7 @@ export interface AgentRuntime {
   memoryStore: MemoryStore;
   returnStore: ReturnStore;
   returnDispatcher: ReturnDispatcher;
+  heartbeat?: HeartbeatEngine;
   runSnapshots?: RunSnapshotsStore;
   generalPurposeSubagent: {
     enabled: true;
@@ -393,7 +396,7 @@ export async function createAgentRuntime(
         }) as unknown as AgentInvoker);
   let closed = false;
 
-  return {
+  const runtime: AgentRuntime = {
     agent,
     backend,
     checkpointer,
@@ -405,6 +408,7 @@ export async function createAgentRuntime(
     memoryStore,
     returnStore,
     returnDispatcher,
+    heartbeat: undefined as HeartbeatEngine | undefined,
     runSnapshots,
     generalPurposeSubagent: {
       enabled: true,
@@ -426,8 +430,28 @@ export async function createAgentRuntime(
         return;
       }
       closed = true;
+      runtime.heartbeat?.stop();
       await backend.close();
       checkpointer.db.close();
     },
   };
+
+  if (settings.heartbeatEnabled) {
+    const service = new AgentCoreServiceHarness(runtime);
+    const engine = new HeartbeatEngine({
+      heartbeatFilePath: settings.heartbeatFilePath,
+      statePath: settings.heartbeatStatePath,
+      service,
+      returnDispatcher,
+      tickIntervalSec: settings.heartbeatTickIntervalSec,
+    });
+    runtime.heartbeat = engine;
+    // Fire-and-forget start. If reading HEARTBEAT.md fails we still keep running
+    // — the engine logs parse errors and the listStatus endpoint surfaces them.
+    void engine.start().catch((err) => {
+      log.error("heartbeat.start.failed", { error: String(err) });
+    });
+  }
+
+  return runtime;
 }

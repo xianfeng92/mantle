@@ -26,6 +26,10 @@ export interface AgentCoreSettings {
   runSnapshotsDir: string;
   memoryFilePath: string;
   returnsLogPath: string;
+  heartbeatFilePath: string;
+  heartbeatStatePath: string;
+  heartbeatEnabled: boolean;
+  heartbeatTickIntervalSec: number;
   httpHost: string;
   httpPort: number;
   virtualMode: boolean;
@@ -159,6 +163,12 @@ export function loadSettings(options: LoadSettingsOptions = {}): AgentCoreSettin
   const returnsLogPath = env.AGENT_CORE_RETURNS_LOG_PATH
     ? path.resolve(workspaceDir, env.AGENT_CORE_RETURNS_LOG_PATH)
     : path.join(dataDir, "returns.jsonl");
+  const heartbeatFilePath = env.AGENT_CORE_HEARTBEAT_FILE_PATH
+    ? path.resolve(workspaceDir, env.AGENT_CORE_HEARTBEAT_FILE_PATH)
+    : path.join(workspaceDir, "HEARTBEAT.md");
+  const heartbeatStatePath = env.AGENT_CORE_HEARTBEAT_STATE_PATH
+    ? path.resolve(workspaceDir, env.AGENT_CORE_HEARTBEAT_STATE_PATH)
+    : path.join(dataDir, "heartbeat-state.json");
   const skillSourcePaths = inferMonorepoSourcePaths(
     workspaceDir,
     parseList(env.AGENT_CORE_SKILL_SOURCE_PATHS),
@@ -188,6 +198,13 @@ export function loadSettings(options: LoadSettingsOptions = {}): AgentCoreSettin
     runSnapshotsDir,
     memoryFilePath,
     returnsLogPath,
+    heartbeatFilePath,
+    heartbeatStatePath,
+    heartbeatEnabled: parseBoolean(env.AGENT_CORE_HEARTBEAT_ENABLED, true),
+    heartbeatTickIntervalSec: parseNumber(
+      env.AGENT_CORE_HEARTBEAT_TICK_INTERVAL_SEC,
+      30,
+    ),
     httpHost: env.AGENT_CORE_HTTP_HOST || "127.0.0.1",
     httpPort: parseNumber(env.AGENT_CORE_HTTP_PORT, 8787),
     virtualMode: parseBoolean(env.AGENT_CORE_VIRTUAL_MODE, true),

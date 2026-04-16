@@ -1124,6 +1124,67 @@ export class AgentCoreHttpServer {
         return;
       }
 
+      // ── Heartbeat ──
+      // Spec: docs/specs/2026-04-16-heartbeat-spec.md
+      if (method === "GET" && pathname === "/heartbeat/tasks") {
+        const engine = this.runtime.heartbeat;
+        if (!engine) {
+          sendJson(response, 200, { enabled: false, tasks: [], parseErrors: [] }, this.corsOrigin);
+          return;
+        }
+        sendJson(
+          response,
+          200,
+          {
+            enabled: true,
+            tasks: engine.listStatus(),
+            parseErrors: engine.getParseErrors(),
+          },
+          this.corsOrigin,
+        );
+        return;
+      }
+
+      if (method === "POST" && pathname === "/heartbeat/reload") {
+        const engine = this.runtime.heartbeat;
+        if (!engine) {
+          sendJson(response, 409, { error: "Heartbeat engine disabled." }, this.corsOrigin);
+          return;
+        }
+        await engine.reload();
+        sendJson(
+          response,
+          200,
+          {
+            tasks: engine.listStatus(),
+            parseErrors: engine.getParseErrors(),
+          },
+          this.corsOrigin,
+        );
+        return;
+      }
+
+      if (method === "POST" && parts.length === 4 && parts[0] === "heartbeat" && parts[1] === "tasks" && parts[3] === "run-now") {
+        const engine = this.runtime.heartbeat;
+        if (!engine) {
+          sendJson(response, 409, { error: "Heartbeat engine disabled." }, this.corsOrigin);
+          return;
+        }
+        const taskId = decodeURIComponent(parts[2] ?? "").trim();
+        if (!taskId) {
+          sendJson(response, 400, { error: "Task id is required." }, this.corsOrigin);
+          return;
+        }
+        try {
+          const state = await engine.runNow(taskId);
+          sendJson(response, 200, { taskId, state }, this.corsOrigin);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          sendJson(response, 404, { error: message }, this.corsOrigin);
+        }
+        return;
+      }
+
       // ── Returns Plane ──
       // Spec: docs/specs/2026-04-16-returns-plane-spec.md
       if (method === "GET" && pathname === "/returns") {
