@@ -8,6 +8,12 @@ declare module "@larksuiteoapi/node-sdk" {
           create(params: any): Promise<any>;
           patch(params: any): Promise<any>;
         };
+        messageResource: {
+          get(params: {
+            path: { message_id: string; file_key: string };
+            params: { type: string };
+          }): Promise<Buffer>;
+        };
       };
     };
   }
@@ -17,7 +23,9 @@ declare module "@larksuiteoapi/node-sdk" {
   }
   export class EventDispatcher {
     constructor(config: any);
-    register(handlers: Record<string, (data: any) => Promise<void>>): EventDispatcher;
+    register(
+      handlers: Record<string, (data: any) => Promise<void>>,
+    ): EventDispatcher;
   }
   export enum LoggerLevel {
     info = "info",

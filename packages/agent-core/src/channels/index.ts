@@ -21,5 +21,11 @@ export {
   type DefaultHandlerOptions,
 } from "./default-handler.js";
 
-// Legacy types (used by existing feishu adapter; will be migrated later)
-export { type ChannelAdapter, type ThreadMapper, InMemoryThreadMapper } from "./types.js";
+// Thread mapping
+export { type ThreadMapper, InMemoryThreadMapper } from "./types.js";
+
+// Legacy interface (deprecated — use Channel instead)
+export { type ChannelAdapter } from "./types.js";
+
+// Feishu
+export { FeishuChannel, type FeishuChannelConfig } from "./feishu.js";
