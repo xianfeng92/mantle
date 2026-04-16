@@ -66,6 +66,7 @@ final class AppViewModel {
     private(set) var client: AgentCoreClient
     private(set) var sseClient: SSEStreamClient
     private(set) var chatVM: ChatViewModel
+    private(set) var returnsService: ReturnsService
 
     // MARK: - Process Manager
 
@@ -148,6 +149,7 @@ final class AppViewModel {
             sseClient: SSEStreamClient(baseURL: baseURL),
             apiClient: AgentCoreClient(baseURL: baseURL)
         )
+        self.returnsService = ReturnsService(baseURL: baseURL)
 
         // Backend process manager
         self.processManager = BackendProcessManager()
@@ -175,6 +177,11 @@ final class AppViewModel {
 
         // Start health monitoring + process manager
         startHealthCheck()
+
+        // Start Returns Plane subscription (menu-bar Inbox).
+        // Safe to call even if backend isn't up yet — the SSE loop will
+        // back off and retry until it succeeds.
+        returnsService.start()
 
         let autoStart = UserDefaults.standard.object(forKey: "mantle.autoStartBackend") as? Bool ?? true
         if autoStart {
@@ -870,6 +877,9 @@ final class AppViewModel {
             sseClient: SSEStreamClient(baseURL: baseURL),
             apiClient: AgentCoreClient(baseURL: baseURL)
         )
+        returnsService.stop()
+        returnsService = ReturnsService(baseURL: baseURL)
+        returnsService.start()
 
         // Reset streaming state on active thread
         if let id = activeThreadId,

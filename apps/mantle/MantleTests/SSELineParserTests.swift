@@ -1,5 +1,5 @@
 import XCTest
-@testable import Cortex
+@testable import Mantle
 
 final class SSELineParserTests: XCTestCase {
 

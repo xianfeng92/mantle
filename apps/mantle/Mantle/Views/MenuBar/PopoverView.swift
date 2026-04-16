@@ -80,6 +80,9 @@ struct PopoverView: View {
 
                 Spacer()
 
+                // Inbox (Returns Plane)
+                InboxButton(service: appVM.returnsService)
+
                 // New thread
                 Button {
                     appVM.createThread()
