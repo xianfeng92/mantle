@@ -378,10 +378,13 @@ export class FeishuChannel implements Channel {
     const draft = new DraftUpdater(this, replyTarget, this.config.draftThrottleMs ?? 500);
 
     try {
+      // Use a HITL-specific scopeKey so a user's next chat message (which
+      // uses scopeKey `feishu:{chatId}`) doesn't preempt an in-flight resume,
+      // and a second button click only preempts another resume (idempotent).
       const stream = this.service.streamResume({
         threadId,
         resume,
-        scopeKey: `feishu:${chatId}`,
+        scopeKey: `feishu:${chatId}:hitl`,
       });
 
       for await (const streamEvent of stream) {
