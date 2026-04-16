@@ -43,7 +43,7 @@ import {
   AGENT_CORE_COMPACT_GENERAL_PURPOSE_DESCRIPTION,
   AGENT_CORE_COMPACT_GENERAL_PURPOSE_SYSTEM_PROMPT,
   AGENT_CORE_COMPACT_SUBAGENT_SYSTEM_PROMPT,
-  AGENT_CORE_COMPACT_SYSTEM_PROMPT,
+  buildCompactSystemPrompt,
   AGENT_CORE_COMPACT_TASK_DESCRIPTION,
   AGENT_CORE_COMPACT_TODO_SYSTEM_PROMPT,
   AGENT_CORE_COMPACT_TODO_TOOL_DESCRIPTION,
@@ -230,7 +230,7 @@ function createCompactAgentInvoker(options: {
 
   return createAgent({
     model,
-    systemPrompt: AGENT_CORE_COMPACT_SYSTEM_PROMPT,
+    systemPrompt: buildCompactSystemPrompt(workspaceDir),
     middleware: [
       todoListMiddleware({
         systemPrompt: AGENT_CORE_COMPACT_TODO_SYSTEM_PROMPT,
