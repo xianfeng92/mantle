@@ -41,6 +41,18 @@ targets:
         CODE_SIGNING_ALLOWED: false
     dependencies:
       - target: Mantle
+schemes:
+  Mantle:
+    build:
+      targets:
+        Mantle: all
+        MantleTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - MantleTests
 packages:
   swift-markdown:
     url: https://github.com/apple/swift-markdown.git

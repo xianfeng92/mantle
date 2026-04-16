@@ -1,10 +1,11 @@
 ---
 title: Context Assembly Contract
-status: ready
+status: implemented
 owner: claude
 created: 2026-04-16
 updated: 2026-04-16
-implements: []
+implements:
+  - docs/changes/2026-04-16-returns-plane-and-context-contract-impl-notes.md
 reviews: []
 ---
 

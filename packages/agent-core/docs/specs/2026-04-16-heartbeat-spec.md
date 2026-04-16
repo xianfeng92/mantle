@@ -1,10 +1,11 @@
 ---
 title: Heartbeat Worker & HEARTBEAT.md
-status: ready
+status: implemented
 owner: claude
 created: 2026-04-16
 updated: 2026-04-16
-implements: []
+implements:
+  - docs/changes/2026-04-16-heartbeat-engine-impl-notes.md
 reviews: []
 ---
 

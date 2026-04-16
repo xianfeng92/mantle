@@ -38,6 +38,14 @@ npm install
 cp .env.example .env
 ```
 
+3. 编译（Mantle macOS 客户端需要 `dist/`）
+
+```bash
+npm run build
+```
+
+> **注意**：Mantle 的 `BackendProcessManager` 启动后端用的是 `node dist/src/serve.js`。如果 `dist/` 不存在或落后于源码，Mantle 会报"无法连接后端"。改代码后务必 `npm run build`，或者开发时用 `npm run serve`（直接 tsx 运行，不需要 dist）。
+
 如果你本机已经在 LM Studio 里把 `Gemma 4 26B A4B` 加载到约 `32K` context，可以直接使用仓库内置的 Gemma 预设：
 
 ```bash

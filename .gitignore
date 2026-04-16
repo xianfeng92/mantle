@@ -23,3 +23,6 @@ packages/agent-core/Downloads/
 packages/agent-core/large_tool_results/
 packages/agent-core/tests/reports/
 packages/agent-core/web/node_modules/
+
+# Workspace-level heartbeat config (per-user, not shared)
+packages/HEARTBEAT.md
