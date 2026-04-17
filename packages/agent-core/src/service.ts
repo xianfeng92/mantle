@@ -415,6 +415,12 @@ export class AgentCoreServiceHarness {
     return this.runtime.settings.contextWindowTokensHint;
   }
 
+  /** Full settings object — read-only. Channels use this for skill execution
+   *  (e.g. to pass model/apiKey to direct-call helpers like generateDigest). */
+  get settings(): Readonly<import("./settings.js").AgentCoreSettings> {
+    return this.runtime.settings;
+  }
+
   getLastMemoryInjection(threadId: string): MemoryInjectionSnapshot | undefined {
     return this.lastMemoryInjectionByThread.get(threadId);
   }

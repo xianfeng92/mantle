@@ -313,12 +313,28 @@ export class FeishuChannel implements Channel {
         return;
       }
 
+      case "/summarize":
+      case "/tweet":
+      case "/t": {
+        const text = raw.slice(cmd.length).trim();
+        if (!text) {
+          await this.sendTextMessage(
+            chatId,
+            "用法：`/summarize <推文原文>`\n把推文内容粘在命令后面，我给你一个要点摘要。",
+          );
+          return;
+        }
+        await this.runSummarizeSkill(chatId, text);
+        return;
+      }
+
       case "/help":
       case "/?": {
         const help = [
           "可用命令：",
           "• `/new` 或 `/reset` — 开新会话，清空上下文",
           "• `/info` 或 `/status` — 查看当前会话大小",
+          "• `/summarize <文本>` — 总结一条推文/内容",
           "• `/help` — 显示本说明",
         ].join("\n");
         await this.sendTextMessage(chatId, help);
@@ -331,6 +347,80 @@ export class FeishuChannel implements Channel {
       }
     }
   }
+
+  /**
+   * Skill: summarize a single tweet / block of text.
+   *
+   * Reuses twitter-digest's summarize mode — wraps the user's text as a
+   * synthetic bookmark with author="user" so the existing JSON schema
+   * flow handles it. LLM output is constrained (zod-validated + one
+   * retry) so Gemma's occasional malformed output doesn't hit the user.
+   */
+  private async runSummarizeSkill(chatId: string, text: string): Promise<void> {
+    if (!this.service) {
+      await this.sendTextMessage(chatId, "⚠️ Service not ready");
+      return;
+    }
+
+    // Send interactive card immediately so user sees feedback while LLM runs.
+    const replyTarget: ReplyTarget = {
+      channelName: this.name,
+      data: { chatId } satisfies FeishuReplyData,
+    };
+    const draft = await this.sendDraft(replyTarget, "✍️ 正在总结…");
+
+    try {
+      const { generateDigest, SummarizeResponseSchema } = await import("../twitter-digest.js");
+      const result = await generateDigest(
+        {
+          mode: "summarize",
+          bookmarks: [
+            {
+              id: "feishu-" + Date.now(),
+              author: "user",
+              text: text.slice(0, 4000), // guard against pathologically long input
+            },
+          ],
+        },
+        this.service.settings,
+      );
+
+      const parsed = SummarizeResponseSchema.safeParse(result);
+      if (!parsed.success || parsed.data.items.length === 0) {
+        const msg = "⚠️ 总结失败：模型输出格式有问题。再试一次，或把文本改短些。";
+        if (draft) {
+          await this.finalizeDraft(draft, msg);
+        } else {
+          await this.sendTextMessage(chatId, msg);
+        }
+        return;
+      }
+
+      const item = parsed.data.items[0]!;
+      const rendered = [
+        `**要点**`,
+        item.summary,
+        "",
+        `**评分**  ${item.qualityScore}/10${item.tags.length > 0 ? ` · **tags**  ${item.tags.map((t) => "\`" + t + "\`").join(" ")}` : ""}`,
+      ].join("\n");
+
+      if (draft) {
+        await this.finalizeDraft(draft, rendered);
+      } else {
+        await this.sendTextMessage(chatId, rendered);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error("summarize.failed", { error: msg.slice(0, 200) });
+      const fallback = `⚠️ 总结失败：${msg.slice(0, 150)}`;
+      if (draft) {
+        await this.finalizeDraft(draft, fallback);
+      } else {
+        await this.sendTextMessage(chatId, fallback);
+      }
+    }
+  }
+
 
   // ── Inbound: card action (HITL approval buttons) ──────────────
 
