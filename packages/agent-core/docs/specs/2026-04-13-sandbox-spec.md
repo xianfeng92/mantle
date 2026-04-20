@@ -3,7 +3,7 @@ title: Agent Sandbox Security
 status: ready
 owner: claude
 created: 2026-04-13
-updated: 2026-04-13
+updated: 2026-04-20
 implements: []
 reviews: []
 ---
@@ -83,3 +83,18 @@ Not yet implemented. When available:
 - `src/sandbox.ts` — Core implementation
 - `src/settings.ts` — Configuration parsing
 - `src/agent.ts` — Middleware integration
+
+## Implementation notes
+
+Implemented today:
+- `src/sandbox.ts` contains `SandboxValidator` plus `createSandboxMiddleware()`
+- Level 1 command validation is implemented with default blocked patterns, optional allowlist mode, and optional network-command blocking
+- Level 1 path validation is implemented for writes and for reads when `readOnlyPaths` is configured
+- `src/settings.ts` parses `AGENT_CORE_SANDBOX_LEVEL`, `AGENT_CORE_SANDBOX_ALLOWED_COMMANDS`, and `AGENT_CORE_SANDBOX_BLOCKED_PATTERNS`
+- `src/agent.ts` wires sandbox middleware before HITL middleware, so sandbox rejection happens before approval prompts
+
+Not fully implemented yet:
+- The `.deepagents/settings.json` sandbox configuration path described above is not currently loaded
+- `networkAccess`, `allowedWritePaths`, and `readOnlyPaths` exist in the runtime types but are not exposed through `loadSettings()`
+- Level 2 Docker isolation remains future work
+- Read-path validation currently only runs when `readOnlyPaths` is configured, rather than always enforcing the full read fence described in the spec

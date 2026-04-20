@@ -3,7 +3,7 @@ title: Standardized Skill Format v2
 status: ready
 owner: claude
 created: 2026-04-13
-updated: 2026-04-13
+updated: 2026-04-20
 implements: []
 reviews: []
 ---
@@ -103,3 +103,16 @@ Use this structure:
   ]
 }
 ```
+
+## Implementation notes
+
+Implemented today:
+- `src/skills.ts` resolves skill source directories inside the workspace and lists per-skill `SKILL.md` files
+- The loader returns core fields such as `name`, `description`, `path`, `sourcePath`, `license`, `metadata`, and `allowedTools`
+- Several v2 fields are already extracted from frontmatter metadata: `version`, `author`, `tags`, `requiresTools`, and `executionMode`
+- Unknown frontmatter keys are preserved in the `metadata` bag, which matches the backward-compatibility goal
+
+Not fully implemented yet:
+- `compatibility.min_context` and `compatibility.models` are not normalized into a structured compatibility object; the runtime still exposes only the legacy `compatibility?: string`
+- The HTTP `GET /skills` response in `src/http.ts` does not yet serialize the v2 fields shown in the API example (`version`, `author`, `tags`, `requiresTools`, `executionMode`)
+- The spec's full v2 API contract is therefore only partially implemented even though the loader understands several of the new frontmatter fields
