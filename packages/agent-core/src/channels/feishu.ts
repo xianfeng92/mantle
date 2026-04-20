@@ -436,8 +436,9 @@ export class FeishuChannel implements Channel {
       return;
     }
 
-    const action = value.action;
+    const action = value.action === "approve" ? "approve" : "reject";
     const threadId = value.threadId;
+    const originalMessageId = extractCardActionMessageId(event);
     // chatId often doesn't survive the button round-trip; recover it from
     // the threadId (format: "channel-{chatId}-{timestamp}") or look it up in
     // the thread mapper as a fallback.
@@ -451,6 +452,15 @@ export class FeishuChannel implements Channel {
     }
 
     log.info("cardAction", { action, threadId, chatId });
+
+    if (originalMessageId) {
+      await this.patchCard(originalMessageId, buildProcessingCard(action));
+    } else {
+      log.debug("cardAction.messageIdMissing", {
+        threadId,
+        action,
+      });
+    }
 
     // Build HITLResponse
     const decision =
@@ -775,6 +785,15 @@ interface ParsedCardActionValue {
   chatId?: string;
 }
 
+function firstNonEmptyString(values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
 /**
  * Best-effort extraction of the button's value from a card.action.trigger
  * event. Handles three observed shapes from the Feishu SDK:
@@ -810,6 +829,47 @@ function extractCardActionValue(event: unknown): ParsedCardActionValue | null {
   return null;
 }
 
+/**
+ * Best-effort extraction of the original interactive card message id from a
+ * card.action.trigger payload. Observed Feishu SDK shapes vary, so we check
+ * several likely locations and return the first non-empty string.
+ */
+function extractCardActionMessageId(event: unknown): string | undefined {
+  if (!event || typeof event !== "object") {
+    return undefined;
+  }
+
+  const wrapped = event as {
+    open_message_id?: unknown;
+    message_id?: unknown;
+    event?: {
+      open_message_id?: unknown;
+      message_id?: unknown;
+      message?: { message_id?: unknown };
+      action?: { open_message_id?: unknown; message_id?: unknown };
+      context?: { open_message_id?: unknown; message_id?: unknown };
+    };
+    action?: { open_message_id?: unknown; message_id?: unknown };
+    context?: { open_message_id?: unknown; message_id?: unknown };
+  };
+
+  return firstNonEmptyString([
+    wrapped.open_message_id,
+    wrapped.message_id,
+    wrapped.event?.open_message_id,
+    wrapped.event?.message_id,
+    wrapped.event?.message?.message_id,
+    wrapped.action?.open_message_id,
+    wrapped.action?.message_id,
+    wrapped.event?.action?.open_message_id,
+    wrapped.event?.action?.message_id,
+    wrapped.context?.open_message_id,
+    wrapped.context?.message_id,
+    wrapped.event?.context?.open_message_id,
+    wrapped.event?.context?.message_id,
+  ]);
+}
+
 // ---------------------------------------------------------------------------
 // Card builders
 // ---------------------------------------------------------------------------
@@ -841,6 +901,26 @@ function buildStreamingCard(content: string, streaming: boolean): unknown {
   return {
     config: { wide_screen_mode: true, update_multi: true },
     elements,
+  };
+}
+
+export function buildProcessingCard(action: "approve" | "reject"): unknown {
+  const approved = action === "approve";
+  return {
+    config: { wide_screen_mode: true, update_multi: true },
+    header: {
+      template: approved ? "green" : "red",
+      title: {
+        tag: "plain_text",
+        content: approved ? "Approval received" : "Request rejected",
+      },
+    },
+    elements: [
+      {
+        tag: "markdown",
+        content: approved ? "✅ Approved · 处理中…" : "❌ Rejected",
+      },
+    ],
   };
 }
 

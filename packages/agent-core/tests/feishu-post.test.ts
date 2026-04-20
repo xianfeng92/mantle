@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseFeishuPostContent } from "../src/channels/feishu.js";
+import { buildProcessingCard, parseFeishuPostContent } from "../src/channels/feishu.js";
 
 // ---------------------------------------------------------------------------
 // Shape variants
@@ -124,4 +124,18 @@ test("post: unknown tags tolerated, known ones captured", () => {
     ],
   });
   assert.equal(parseFeishuPostContent(content), "kept");
+});
+
+test("processing card: approve status hides buttons and shows processing state", () => {
+  const card = buildProcessingCard("approve") as {
+    header?: { template?: string };
+    elements?: Array<{ tag?: string; content?: string; actions?: unknown[] }>;
+  };
+
+  assert.equal(card.header?.template, "green");
+  assert.deepEqual(
+    card.elements?.map((element) => element.tag),
+    ["markdown"],
+  );
+  assert.equal(card.elements?.[0]?.content, "✅ Approved · 处理中…");
 });
