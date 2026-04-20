@@ -527,6 +527,12 @@ export class FeishuChannel implements Channel {
       return { text: this.extractTextContent(message) };
     }
 
+    if (message.message_type === "post") {
+      // Rich-text message — happens when pasted content has formatting,
+      // links, or multiple paragraphs. Extract all text inline content.
+      return { text: this.extractPostContent(message) };
+    }
+
     // Unsupported message type — log and skip
     log.debug("unsupported.messageType", { type: message.message_type });
     return { text: null };
@@ -545,6 +551,10 @@ export class FeishuChannel implements Channel {
     } catch {
       return null;
     }
+  }
+
+  private extractPostContent(message: FeishuMessageEvent["message"]): string | null {
+    return parseFeishuPostContent(message.content, message.mentions);
   }
 
   /**
@@ -632,6 +642,81 @@ export class FeishuChannel implements Channel {
       });
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Post-message parsing (rich text)
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract plain text from a Feishu post message's `content` JSON.
+ *
+ * Shapes handled (either locale-wrapped or bare):
+ *   { zh_cn: { title, content: [[el, el], [el]] } }
+ *   { title, content: [[el, el]] }
+ *
+ * Inline elements we keep:
+ *   { tag: "text", text: "..." }                       → text
+ *   { tag: "a",    text: "...", href: "..." }          → "text (href)"
+ * Ignored (but tolerated):
+ *   { tag: "at" | "img" | unknown }                    → skipped
+ *
+ * Returns null if the payload is malformed or yields no text at all.
+ *
+ * Exported for unit testing.
+ */
+export function parseFeishuPostContent(
+  rawContent: string,
+  mentions?: ReadonlyArray<{ key: string; name: string }>,
+): string | null {
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(rawContent) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+
+  // Unwrap locale wrapper if present (zh_cn / en_us / …).
+  const localeKeys = Object.keys(raw).filter((k) => /^[a-z]{2}_[a-z]{2}$/i.test(k));
+  const post = localeKeys.length > 0
+    ? (raw[localeKeys[0]!] as Record<string, unknown>)
+    : raw;
+
+  const titleRaw = post.title;
+  const contentRaw = post.content;
+  if (!Array.isArray(contentRaw)) return null;
+
+  const paragraphs: string[] = [];
+  for (const line of contentRaw) {
+    if (!Array.isArray(line)) continue;
+    const pieces: string[] = [];
+    for (const el of line) {
+      if (!el || typeof el !== "object") continue;
+      const tag = (el as { tag?: unknown }).tag;
+      const t = (el as { text?: unknown }).text;
+      const href = (el as { href?: unknown }).href;
+      if (tag === "text" && typeof t === "string") {
+        pieces.push(t);
+      } else if (tag === "a" && typeof t === "string") {
+        pieces.push(typeof href === "string" ? `${t} (${href})` : t);
+      }
+    }
+    const joined = pieces.join("").trim();
+    if (joined) paragraphs.push(joined);
+  }
+
+  let out = paragraphs.join("\n");
+  if (typeof titleRaw === "string" && titleRaw.trim()) {
+    out = `${titleRaw.trim()}\n\n${out}`;
+  }
+
+  if (mentions) {
+    for (const mention of mentions) {
+      out = out.replace(mention.key, "").trim();
+    }
+  }
+
+  return out.trim() || null;
 }
 
 // ---------------------------------------------------------------------------
