@@ -8,6 +8,13 @@ export type {
   DraftHandle,
   ReplyTarget,
 } from "./channel.js";
+export type { ToolProfile } from "./tool-profile.js";
+export {
+  TOOL_PROFILE_ALLOWLISTS,
+  createToolProfileMiddleware,
+  filterToolsByProfile,
+  normalizeToolProfile,
+} from "./tool-profile.js";
 
 export {
   ChannelDispatcher,

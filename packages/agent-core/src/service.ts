@@ -27,6 +27,7 @@ import {
   extractAndWriteMemories,
   type MemoryEntry,
 } from "./memory.js";
+import type { ToolProfile } from "./channels/tool-profile.js";
 import type { RunSnapshotStatus } from "./run-snapshots.js";
 import type {
   ActionRequest,
@@ -75,6 +76,7 @@ export interface RunOnceOptions {
   input: UserInput;
   /** Optional environment context prepended as a system message */
   context?: string;
+  toolProfile?: ToolProfile;
   onInterrupt?: ServiceInterruptHandler;
   maxInterrupts?: number;
 }
@@ -83,6 +85,7 @@ export interface ResumeOnceOptions {
   traceId?: string;
   threadId: string;
   resume: HITLResponse;
+  toolProfile?: ToolProfile;
   onInterrupt?: ServiceInterruptHandler;
   maxInterrupts?: number;
 }
@@ -96,6 +99,7 @@ export interface StreamRunOptions {
   signal?: AbortSignal;
   /** Interruption scope key. Same-scope requests abort the previous one. */
   scopeKey?: string;
+  toolProfile?: ToolProfile;
 }
 
 export interface StreamResumeOptions {
@@ -105,6 +109,7 @@ export interface StreamResumeOptions {
   signal?: AbortSignal;
   /** Interruption scope key. Same-scope requests abort the previous one. */
   scopeKey?: string;
+  toolProfile?: ToolProfile;
 }
 
 export interface ServiceRunResult {
@@ -522,6 +527,7 @@ export class AgentCoreServiceHarness {
       "run",
       options.threadId,
       { messages },
+      options.toolProfile,
       options.onInterrupt,
       options.maxInterrupts ?? 32,
       buildRunSnapshotPreview(options.input),
@@ -535,6 +541,7 @@ export class AgentCoreServiceHarness {
       "resume",
       options.threadId,
       new Command({ resume: normalizeHitlResponse(options.resume) }),
+      options.toolProfile,
       options.onInterrupt,
       options.maxInterrupts ?? 32,
       buildResumeSnapshotPreview(options.resume),
@@ -551,6 +558,7 @@ export class AgentCoreServiceHarness {
         options.threadId,
         "run",
         { messages },
+        options.toolProfile,
         signal,
         buildRunSnapshotPreview(options.input),
       );
@@ -568,6 +576,7 @@ export class AgentCoreServiceHarness {
         options.threadId,
         "resume",
         new Command({ resume: normalizeHitlResponse(options.resume) }),
+        options.toolProfile,
         signal,
         buildResumeSnapshotPreview(options.resume),
       );
@@ -808,6 +817,7 @@ export class AgentCoreServiceHarness {
     mode: "run" | "resume",
     threadId: string,
     initialRequest: Command | { messages: Array<{ role: string; content: string | ContentBlock[] }> },
+    toolProfile: ToolProfile | undefined,
     onInterrupt: ServiceInterruptHandler | undefined,
     maxInterrupts: number,
     inputPreview?: string,
@@ -848,11 +858,8 @@ export class AgentCoreServiceHarness {
             () =>
               this.runtime.agent.invoke(request, {
                 version: this.runtime.settings.agentGraphVersion,
-              configurable: {
-                thread_id: threadId,
-                trace_id: traceId,
-              },
-            }),
+                configurable: this.buildConfigurable(threadId, traceId, toolProfile),
+              }),
             {
               maxAttempts: 3,
               baseDelayMs: 1000,
@@ -903,10 +910,7 @@ export class AgentCoreServiceHarness {
           try {
             result = await this.runtime.agent.invoke(request, {
               version: this.runtime.settings.agentGraphVersion,
-              configurable: {
-                thread_id: threadId,
-                trace_id: traceId,
-              },
+              configurable: this.buildConfigurable(threadId, traceId, toolProfile),
             });
           } catch (retryError) {
             await this.runtime.traceRecorder.record({
@@ -1175,6 +1179,7 @@ export class AgentCoreServiceHarness {
     threadId: string,
     mode: "run" | "resume",
     input: Command | { messages: Array<{ role: string; content: string | ContentBlock[] }> },
+    toolProfile: ToolProfile | undefined,
     signal?: AbortSignal,
     inputPreview?: string,
   ): AsyncGenerator<ServiceStreamEvent> {
@@ -1214,10 +1219,7 @@ export class AgentCoreServiceHarness {
         () =>
           this.runtime.agent.streamEvents!(input, {
             version: this.runtime.settings.agentGraphVersion,
-            configurable: {
-              thread_id: threadId,
-              trace_id: traceId,
-            },
+            configurable: this.buildConfigurable(threadId, traceId, toolProfile),
             signal,
           }) as Promise<AsyncIterable<StreamEvent>>,
         {
@@ -1554,6 +1556,18 @@ export class AgentCoreServiceHarness {
       await this.finalizeRunSnapshot(traceId, "failed");
       throw error;
     }
+  }
+
+  private buildConfigurable(
+    threadId: string,
+    traceId: string,
+    toolProfile?: ToolProfile,
+  ): Record<string, unknown> {
+    return {
+      thread_id: threadId,
+      trace_id: traceId,
+      ...(toolProfile ? { toolProfile } : {}),
+    };
   }
 
   private async startRunSnapshot(

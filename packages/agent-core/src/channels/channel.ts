@@ -11,6 +11,7 @@
 //   send() / draft lifecycle → fan-out back to platform
 
 import type { ChannelDispatcher } from "./dispatcher.js";
+import type { ToolProfile } from "./tool-profile.js";
 
 // ---------------------------------------------------------------------------
 // Reply target — opaque handle the channel understands
@@ -67,6 +68,8 @@ export interface ChannelMessage {
   images?: string[];
   /** ThreadId to use for the agent run (from ThreadMapper). */
   threadId: string;
+  /** Per-turn tool visibility profile. */
+  toolProfile?: ToolProfile;
   /** Original platform-specific message (for audit / debugging). */
   raw?: unknown;
   /** Unix ms timestamp. */

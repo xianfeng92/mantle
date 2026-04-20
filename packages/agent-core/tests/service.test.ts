@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AIMessage, HumanMessage, RemoveMessage, ToolMessage } from "@langchain/core/messages";
+import type { StreamEvent } from "@langchain/core/types/stream";
 import { Command } from "@langchain/langgraph";
 
 import type { AgentRuntime } from "../src/agent.js";
@@ -21,6 +22,8 @@ interface InvokeCall {
   };
 }
 
+interface StreamCall extends InvokeCall {}
+
 function createCompactionState(snapshot: ContextCompactionSnapshot) {
   return {
     _summarizationSessionId: snapshot.sessionId,
@@ -35,9 +38,10 @@ function createCompactionState(snapshot: ContextCompactionSnapshot) {
 function createRuntimeStub(
   responses: InvokeResultLike[],
   stateValues: unknown[] = [],
-  options?: { stateful?: boolean },
+  options?: { stateful?: boolean; streamEvents?: StreamEvent[] },
 ) {
   const calls: InvokeCall[] = [];
+  const streamCalls: StreamCall[] = [];
   const stateCalls: InvokeCall[] = [];
   let index = 0;
   let stateIndex = 0;
@@ -66,6 +70,12 @@ function createRuntimeStub(
             : [];
         }
         return response;
+      },
+      async *streamEvents(input, config) {
+        streamCalls.push({ input, config });
+        for (const event of options?.streamEvents ?? []) {
+          yield event;
+        }
       },
       async getState(config) {
         stateCalls.push({ input: null, config });
@@ -155,7 +165,7 @@ function createRuntimeStub(
     async close() {},
   };
 
-  return { runtime, calls, stateCalls, traceEvents };
+  return { runtime, calls, streamCalls, stateCalls, traceEvents };
 }
 
 test("runOnce returns completed result with new messages", async () => {
@@ -178,6 +188,36 @@ test("runOnce returns completed result with new messages", async () => {
   assert.equal(calls.length, 1);
   assert.equal(calls[0]?.config?.version, "v2");
   assert.equal(calls[0]?.config?.configurable?.thread_id, "thread-1");
+});
+
+test("streamRun forwards toolProfile into runtime configurable", async () => {
+  const streamEvents: StreamEvent[] = [
+    {
+      event: "on_chain_end",
+      name: "LangGraph",
+      run_id: "run-1",
+      data: {
+        output: {
+          messages: [new HumanMessage("hello"), new AIMessage("world")],
+        },
+      },
+    } as StreamEvent,
+  ];
+  const { runtime, streamCalls } = createRuntimeStub([], [], { streamEvents });
+  const service = new AgentCoreServiceHarness(runtime);
+
+  const stream = service.streamRun({
+    threadId: "thread-stream-1",
+    input: "hello",
+    toolProfile: "chat",
+  });
+  for await (const _event of stream) {
+    // exhaust the stream
+  }
+
+  assert.equal(streamCalls.length, 1);
+  assert.equal(streamCalls[0]?.config?.configurable?.thread_id, "thread-stream-1");
+  assert.equal(streamCalls[0]?.config?.configurable?.toolProfile, "chat");
 });
 
 test("runOnce returns interrupted result when no handler is supplied", async () => {

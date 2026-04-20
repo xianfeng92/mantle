@@ -253,6 +253,7 @@ export class FeishuChannel implements Channel {
       text: text || "(image)",
       images,
       threadId,
+      toolProfile: "chat",
       raw: event,
       timestamp: Date.now(),
     };

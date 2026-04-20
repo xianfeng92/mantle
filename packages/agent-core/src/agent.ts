@@ -63,6 +63,7 @@ import { AgentCoreServiceHarness } from "./service.js";
 import { createSandboxMiddleware, type SandboxConfig } from "./sandbox.js";
 import { RunSnapshotsStore } from "./run-snapshots.js";
 import type { InvokeResultLike } from "./types.js";
+import { createToolProfileMiddleware } from "./channels/tool-profile.js";
 
 const log = createLogger("agent");
 
@@ -266,6 +267,7 @@ function createCompactAgentInvoker(options: {
         backend,
         traceRecorder,
       }),
+      createToolProfileMiddleware(),
       createSummarizationMiddleware({
         model,
         backend,

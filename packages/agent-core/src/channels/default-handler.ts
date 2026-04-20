@@ -53,6 +53,7 @@ export function createDefaultHandler(
         threadId: message.threadId,
         input,
         scopeKey: message.scopeKey,
+        toolProfile: message.toolProfile,
         signal,
       });
 
