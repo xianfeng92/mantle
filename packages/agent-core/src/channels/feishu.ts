@@ -427,7 +427,7 @@ export class FeishuChannel implements Channel {
         `**要点**`,
         item.summary,
         "",
-        `**评分**  ${item.qualityScore}/10${item.tags.length > 0 ? ` · **tags**  ${item.tags.map((t) => "\`" + t + "\`").join(" ")}` : ""}`,
+        `**评分**  ${item.qualityScore}/10${item.tags.length > 0 ? ` · **tags**  ${item.tags.join(" ")}` : ""}`,
       ].join("\n");
 
       if (draft) {
@@ -889,6 +889,37 @@ function toDisplayPath(workspaceDir: string, filePath: string): string {
   return path.relative(workspaceDir, filePath).split(path.sep).join("/");
 }
 
+function scoreFindMatch(filePath: string, keyword: string): number {
+  const normalizedPath = filePath.split(path.sep).join("/").toLowerCase();
+  const lowerKeyword = keyword.toLowerCase();
+  const baseName = path.basename(normalizedPath);
+  let score = 0;
+
+  if (
+    baseName === `${lowerKeyword}.ts` ||
+    baseName === `${lowerKeyword}.swift` ||
+    baseName === `${lowerKeyword}.md`
+  ) {
+    score += 100;
+  }
+  if (baseName.includes(lowerKeyword)) {
+    score += 40;
+  }
+  if (normalizedPath.includes("/src/")) {
+    score += 30;
+  }
+  if (normalizedPath.includes("/channels/")) {
+    score += 20;
+  }
+  if (normalizedPath.includes("/tests/")) {
+    score -= 5;
+  }
+  if (normalizedPath.endsWith("/readme.md")) {
+    score -= 10;
+  }
+  return score;
+}
+
 function truncateLine(text: string, maxLength = 160): string {
   if (text.length <= maxLength) {
     return text;
@@ -920,6 +951,10 @@ async function runGrep(args: string[]): Promise<string> {
 async function listWorkspaceMatches(workspaceDir: string, keyword: string): Promise<string[]> {
   const stdout = await runGrep([
     "-rnlF",
+    "--exclude-dir=.agent-core",
+    "--exclude-dir=node_modules",
+    "--exclude-dir=dist",
+    "--exclude-dir=.git",
     "--include=*.ts",
     "--include=*.swift",
     "--include=*.md",
@@ -934,6 +969,13 @@ async function listWorkspaceMatches(workspaceDir: string, keyword: string): Prom
     .filter(Boolean)
     .map((filePath) => path.resolve(filePath))
     .filter((filePath) => isPathInsideWorkspace(workspaceDir, filePath))
+    .sort((a, b) => {
+      const scoreDiff = scoreFindMatch(b, keyword) - scoreFindMatch(a, keyword);
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+      return toDisplayPath(workspaceDir, a).localeCompare(toDisplayPath(workspaceDir, b));
+    })
     .slice(0, FIND_RESULT_FILE_LIMIT);
 }
 

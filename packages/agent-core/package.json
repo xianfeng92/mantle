@@ -30,7 +30,8 @@
     "test:all": "npm test && npm run test:e2e",
     "bench:context": "tsx tests/benchmarks/context-benchmark.ts",
     "bench:launch": "EVAL_L2=1 tsx tests/e2e/launch/launch-benchmark-runner.ts",
-    "bench:launch:ci": "EVAL_L2=1 tsx tests/e2e/launch/launch-benchmark-runner.ts --ci"
+    "bench:launch:ci": "EVAL_L2=1 tsx tests/e2e/launch/launch-benchmark-runner.ts --ci",
+    "feishu:test": "tsx scripts/feishu-batch-runner.ts"
   },
   "keywords": [
     "deepagents",

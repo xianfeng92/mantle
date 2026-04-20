@@ -592,6 +592,40 @@ npm run serve
 - 图片消息：自动 OCR+vision 路由（见 Media Pipeline）
 - 审批：agent 调敏感工具时会发交互卡片，点击按钮继续执行
 
+### 飞书批量 smoke
+
+如果你已经把 Mantle bot 接进飞书，想一次性把常见 case 跑完，可以直接用：
+
+```bash
+npm run feishu:test -- --chat oc_xxx
+```
+
+默认是 `ui` 模式：
+- 先打开飞书桌面端里的目标聊天
+- 把光标放进输入框
+- 脚本会用 `osascript` 逐条粘贴并发送默认 smoke cases
+- 同时通过飞书 Open API 轮询聊天记录，自动解析文本/卡片消息并输出报告
+
+常用参数：
+
+```bash
+# 只跑部分 case
+npm run feishu:test -- --chat oc_xxx --filter summarize,find
+
+# 仅看将要发送什么，不真正执行
+npm run feishu:test -- --chat oc_xxx --dry-run
+
+# 如果你确认 bot 自发消息也能触发链路，可切到 API 模式
+npm run feishu:test -- --chat oc_xxx --transport api
+```
+
+报告会写到：
+
+```bash
+.agent-core/reports/feishu-*.json
+.agent-core/reports/feishu-*.md
+```
+
 **不设置 env 会怎样？**
 Channels bootstrap 发现没有配置时日志会打 `no channels configured — skipping`，不影响 HTTP 服务正常启动。
 
