@@ -113,6 +113,7 @@ export class FeishuChannel implements Channel {
       appId: this.config.appId,
       appSecret: this.config.appSecret,
     };
+    const noopEventHandler = async () => {};
 
     this.client = new Lark.Client(baseConfig);
 
@@ -123,6 +124,10 @@ export class FeishuChannel implements Channel {
       "card.action.trigger": async (data: FeishuCardActionEvent) => {
         await this.onCardAction(data);
       },
+      "im.message.message_read_v1": noopEventHandler,
+      "im.message.reaction.created_v1": noopEventHandler,
+      "im.message.reaction.deleted_v1": noopEventHandler,
+      "im.message.recalled_v1": noopEventHandler,
     });
 
     this.wsClient = new Lark.WSClient({
