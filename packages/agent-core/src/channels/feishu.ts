@@ -12,7 +12,10 @@
  * - Scope-based preemption (scopeKey = "feishu:{chatId}")
  */
 
+import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import path from "node:path";
+import { promisify } from "node:util";
 
 import { createLogger } from "../logger.js";
 import type { AgentCoreServiceHarness } from "../service.js";
@@ -24,6 +27,11 @@ import type { ThreadMapper } from "./types.js";
 import { InMemoryThreadMapper } from "./types.js";
 
 const log = createLogger("feishu");
+const execFileAsync = promisify(execFile);
+const FIND_RESULT_FILE_LIMIT = 20;
+const FIND_RENDER_FILE_LIMIT = 5;
+const FIND_SNIPPET_LIMIT_PER_FILE = 3;
+const FIND_MAX_BUFFER_BYTES = 4 * 1024 * 1024;
 
 // ── Config ────────────────────────────────────────────────────────
 
@@ -334,6 +342,17 @@ export class FeishuChannel implements Channel {
         return;
       }
 
+      case "/find":
+      case "/search": {
+        const keyword = raw.slice(cmd.length).trim();
+        if (!keyword) {
+          await this.sendTextMessage(chatId, "用法：`/find <关键词>` — 在 workspace 里搜代码");
+          return;
+        }
+        await this.runFindSkill(chatId, keyword);
+        return;
+      }
+
       case "/help":
       case "/?": {
         const help = [
@@ -341,6 +360,7 @@ export class FeishuChannel implements Channel {
           "• `/new` 或 `/reset` — 开新会话，清空上下文",
           "• `/info` 或 `/status` — 查看当前会话大小",
           "• `/summarize <文本>` — 总结一条推文/内容",
+          "• `/find <关键词>` — 在 workspace 里搜索代码",
           "• `/help` — 显示本说明",
         ].join("\n");
         await this.sendTextMessage(chatId, help);
@@ -419,6 +439,67 @@ export class FeishuChannel implements Channel {
       const msg = err instanceof Error ? err.message : String(err);
       log.error("summarize.failed", { error: msg.slice(0, 200) });
       const fallback = `⚠️ 总结失败：${msg.slice(0, 150)}`;
+      if (draft) {
+        await this.finalizeDraft(draft, fallback);
+      } else {
+        await this.sendTextMessage(chatId, fallback);
+      }
+    }
+  }
+
+  private async runFindSkill(chatId: string, keyword: string): Promise<void> {
+    if (!this.service) {
+      await this.sendTextMessage(chatId, "⚠️ Service not ready");
+      return;
+    }
+
+    const workspaceDir = path.resolve(this.service.settings.workspaceDir);
+    const replyTarget: ReplyTarget = {
+      channelName: this.name,
+      data: { chatId } satisfies FeishuReplyData,
+    };
+    const draft = await this.sendDraft(replyTarget, `🔎 正在搜索 \`${keyword}\` …`);
+
+    try {
+      const candidateFiles = (await listWorkspaceMatches(workspaceDir, keyword)).slice(
+        0,
+        FIND_RESULT_FILE_LIMIT,
+      );
+
+      if (candidateFiles.length === 0) {
+        const emptyMessage = `没有在 workspace 里找到包含 \`${keyword}\` 的 `.concat(
+          "`.ts` / `.swift` / `.md` 文件。",
+        );
+        if (draft) {
+          await this.finalizeDraft(draft, emptyMessage);
+        } else {
+          await this.sendTextMessage(chatId, emptyMessage);
+        }
+        return;
+      }
+
+      const renderedMatches = await Promise.all(
+        candidateFiles
+          .slice(0, FIND_RENDER_FILE_LIMIT)
+          .map(async (filePath) => ({
+            filePath,
+            snippets: await collectFileSnippets(filePath, keyword),
+          })),
+      );
+
+      const rendered = renderFindResults(workspaceDir, keyword, candidateFiles.length, renderedMatches);
+      if (draft) {
+        await this.finalizeDraft(draft, rendered);
+      } else {
+        await this.sendTextMessage(chatId, rendered);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error("find.failed", {
+        keyword: keyword.slice(0, 120),
+        error: msg.slice(0, 200),
+      });
+      const fallback = `⚠️ 搜索失败：${msg.slice(0, 150)}`;
       if (draft) {
         await this.finalizeDraft(draft, fallback);
       } else {
@@ -797,6 +878,106 @@ function firstNonEmptyString(values: unknown[]): string | undefined {
     }
   }
   return undefined;
+}
+
+function isPathInsideWorkspace(workspaceDir: string, candidatePath: string): boolean {
+  const relative = path.relative(workspaceDir, candidatePath);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function toDisplayPath(workspaceDir: string, filePath: string): string {
+  return path.relative(workspaceDir, filePath).split(path.sep).join("/");
+}
+
+function truncateLine(text: string, maxLength = 160): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength)}...`;
+}
+
+async function runGrep(args: string[]): Promise<string> {
+  try {
+    const result = await execFileAsync("grep", args, {
+      cwd: "/",
+      encoding: "utf8",
+      maxBuffer: FIND_MAX_BUFFER_BYTES,
+    });
+    return result.stdout;
+  } catch (error) {
+    const execError = error as NodeJS.ErrnoException & {
+      code?: string | number;
+      stdout?: string;
+      stderr?: string;
+    };
+    if (String(execError.code) === "1") {
+      return execError.stdout ?? "";
+    }
+    throw new Error(execError.stderr || execError.message || "grep failed");
+  }
+}
+
+async function listWorkspaceMatches(workspaceDir: string, keyword: string): Promise<string[]> {
+  const stdout = await runGrep([
+    "-rnlF",
+    "--include=*.ts",
+    "--include=*.swift",
+    "--include=*.md",
+    "--",
+    keyword,
+    workspaceDir,
+  ]);
+
+  return stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((filePath) => path.resolve(filePath))
+    .filter((filePath) => isPathInsideWorkspace(workspaceDir, filePath))
+    .slice(0, FIND_RESULT_FILE_LIMIT);
+}
+
+async function collectFileSnippets(
+  filePath: string,
+  keyword: string,
+): Promise<string[]> {
+  const stdout = await runGrep(["-nF", "--", keyword, filePath]);
+  return stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, FIND_SNIPPET_LIMIT_PER_FILE)
+    .map((line) => {
+      const separatorIndex = line.indexOf(":");
+      if (separatorIndex <= 0) {
+        return truncateLine(line);
+      }
+      const lineNumber = line.slice(0, separatorIndex);
+      const content = line.slice(separatorIndex + 1).trim();
+      return `L${lineNumber}: ${truncateLine(content)}`;
+    });
+}
+
+function renderFindResults(
+  workspaceDir: string,
+  keyword: string,
+  totalMatches: number,
+  matches: Array<{ filePath: string; snippets: string[] }>,
+): string {
+  const lines = [`**${totalMatches} 个文件匹配 "${keyword}"**`];
+
+  for (const match of matches) {
+    lines.push(`- \`${toDisplayPath(workspaceDir, match.filePath)}\``);
+    lines.push("```text");
+    lines.push(...(match.snippets.length > 0 ? match.snippets : ["(有文件命中，但片段读取为空)"]));
+    lines.push("```");
+  }
+
+  if (totalMatches > matches.length) {
+    lines.push("", `_仅展示前 ${matches.length} 个文件，已截断。_`);
+  }
+
+  return lines.join("\n");
 }
 
 /**
