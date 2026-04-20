@@ -217,15 +217,11 @@ export function analyzeActionRisk(action: ActionRequest): ActionRiskAssessment {
     case "write_file":
     case "edit_file":
       return analyzeFileAction(action);
-    case "open_app":
-    case "click_element":
-    case "set_element_value":
-    case "key_press":
-    case "type_text":
     case "open_app_and_observe":
     case "click_element_and_wait":
     case "set_value_and_verify":
     case "press_shortcut_and_verify":
+    case "run_actions":
       return analyzeComputerUseAction(action);
     default:
       return analyzeGenericAction(action);

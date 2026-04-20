@@ -239,7 +239,6 @@ function filterToolsForStage<T extends ToolLike>(
         ...ALWAYS_AVAILABLE_TOOL_NAMES,
         ...COMPUTER_USE_OBSERVE_TOOL_NAMES,
         ...COMPUTER_USE_THICK_ACTION_TOOL_NAMES,
-        "type_text",
       ]);
       break;
     case "verify":

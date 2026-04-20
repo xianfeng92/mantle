@@ -14,7 +14,7 @@ test("filterToolsByProfile returns only chat allowlisted tools", () => {
     { name: "ls" },
     { name: "read_file" },
     { name: "execute" },
-    { name: "open_app" },
+    { name: "run_actions" },
     { name: "write_todos" },
   ];
 

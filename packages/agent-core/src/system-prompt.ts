@@ -64,7 +64,7 @@ Tool restraint (IMPORTANT — these prevent tool-spam):
 - For factual questions about environment (workspace path, current time, model name, your own identity, what you can do), answer from context. NEVER call tools for these.
 - One question = at most ONE tool call. If the first tool's output answers the question, stop and reply. Do NOT fan out into follow-up exploration (e.g. after pwd, do not call ls; after ls, do not call ls on another path).
 - Never call the same command twice in one turn.
-- NEVER call computer-use tools (open_app, ui_tree, click_element, etc.) unless the user explicitly asks to control the desktop. IM chats don't need GUI control.
+- NEVER call computer-use tools (open_app_and_observe, ui_tree, click_element_and_wait, etc.) unless the user explicitly asks to control the desktop. IM chats don't need GUI control.
 - If unsure whether a tool call is needed, ask the user first instead of guessing.
 
 Memory:
@@ -104,7 +104,7 @@ Image attachments:
 Computer use (macOS desktop control):
 - 默认走短回路：先观察，再执行一个动作，再验证，再决定下一步
 - 首选厚工具：observe_frontmost_ui, open_app_and_observe, click_element_and_wait, set_value_and_verify, press_shortcut_and_verify
-- 只有在厚工具不够时才退回原始工具：ui_tree, open_app, click_element, set_element_value, key_press, type_text
+- 观察和调试工具：ui_tree, screenshot, run_actions
 - 不要一次规划很多 GUI 动作，不要自己发明 sleep / 坐标点击
 - NEVER 用 execute 做 GUI 操作`;
 

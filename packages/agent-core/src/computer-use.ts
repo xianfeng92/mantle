@@ -294,153 +294,6 @@ const screenshotTool = tool(
   },
 );
 
-const clickTool = tool(
-  async (input) => {
-    await callMantle("/click", {
-      x: input.x,
-      y: input.y,
-      button: input.button,
-      click_count: input.click_count,
-    });
-    return `Clicked ${input.button} x${input.click_count} at (${input.x}, ${input.y})`;
-  },
-  {
-    name: "click",
-    description:
-      "在屏幕指定坐标点击鼠标。仅用于调试或元素索引不可用时，不建议默认使用。",
-    schema: z.object({
-      x: z.number().int(),
-      y: z.number().int(),
-      button: z.enum(["left", "right"]).default("left"),
-      click_count: z.number().int().min(1).max(3).default(1),
-    }),
-  },
-);
-
-const typeTextTool = tool(
-  async (input) => {
-    await callMantle("/type_text", { text: input.text });
-    return formatResult({
-      ok: true,
-      action: "type_text",
-      typedChars: input.text.length,
-      preview: truncateText(input.text, 120),
-      note: "Type once, then verify with observe_frontmost_ui before more GUI actions.",
-    });
-  },
-  {
-    name: "type_text",
-    description:
-      "在当前焦点位置输入文本。适合已经聚焦到编辑区后的单步输入，输入后应立刻验证 UI 状态。",
-    schema: z.object({
-      text: z.string(),
-    }),
-  },
-);
-
-const keyPressTool = tool(
-  async (input) => {
-    await callMantle("/key_press", {
-      key: input.key,
-      modifiers: input.modifiers,
-    });
-    const mod = input.modifiers?.length ? `${input.modifiers.join("+")}+` : "";
-    return `Pressed: ${mod}${input.key}`;
-  },
-  {
-    name: "key_press",
-    description:
-      "按下键盘快捷键。仅用于调试或厚工具无法覆盖的场景，默认更推荐 press_shortcut_and_verify。",
-    schema: z.object({
-      key: z.string(),
-      modifiers: z.array(z.enum(["cmd", "shift", "alt", "ctrl"])).default([]),
-    }),
-  },
-);
-
-const scrollTool = tool(
-  async (input) => {
-    await callMantle("/scroll", {
-      x: input.x,
-      y: input.y,
-      delta_y: input.delta_y,
-      delta_x: input.delta_x,
-    });
-    return `Scrolled at (${input.x}, ${input.y}): dy=${input.delta_y} dx=${input.delta_x}`;
-  },
-  {
-    name: "scroll",
-    description: "在指定位置滚动。仅用于调试。",
-    schema: z.object({
-      x: z.number().int(),
-      y: z.number().int(),
-      delta_y: z.number().int(),
-      delta_x: z.number().int().default(0),
-    }),
-  },
-);
-
-const clickElementTool = tool(
-  async (input) => {
-    const result = await callMantle("/click_element", {
-      index: input.index,
-    });
-    return String(result) === "ok"
-      ? `Clicked element [${input.index}]`
-      : `Failed to click element [${input.index}]: ${result}`;
-  },
-  {
-    name: "click_element",
-    description:
-      "通过 ui_tree 的 [index] 点击元素。默认更推荐 click_element_and_wait。",
-    schema: z.object({
-      index: z.number().int().min(0),
-    }),
-  },
-);
-
-const setElementValueTool = tool(
-  async (input) => {
-    const result = await callMantle("/set_value", {
-      index: input.index,
-      value: input.value,
-    });
-    return String(result) === "ok"
-      ? `Set element [${input.index}] value to "${truncateText(input.value, 60)}"`
-      : `Failed to set value: ${result}`;
-  },
-  {
-    name: "set_element_value",
-    description:
-      "通过 ui_tree 的 [index] 设置元素值。默认更推荐 set_value_and_verify。",
-    schema: z.object({
-      index: z.number().int().min(0),
-      value: z.string(),
-    }),
-  },
-);
-
-const openAppTool = tool(
-  async (input) => {
-    const result = await callMantle("/open_app", {
-      app_name: resolveAppName(input.app_name),
-      bundle_id: input.bundle_id,
-    });
-    return String(result) === "ok"
-      ? `Opened app ${input.app_name ?? input.bundle_id}`
-      : `Failed to open app: ${result}`;
-  },
-  {
-    name: "open_app",
-    description:
-      "打开 macOS 应用。默认更推荐 open_app_and_observe，因为它会等待并返回 UI 观察结果。",
-    schema: z.object({
-      app_name: z.string().optional(),
-      bundle_id: z.string().optional(),
-    }),
-  },
-);
-
 const openAppAndObserveTool = tool(
   async (input) => {
     const appName = resolveAppName(input.app_name);
@@ -603,7 +456,7 @@ const pressShortcutAndVerifyTool = tool(
 );
 
 // ---------------------------------------------------------------------------
-// Batch action tool — retained for debugging, no longer a default tool
+// Batch action tool — retained for debugging, but should remain a last resort
 // ---------------------------------------------------------------------------
 
 interface ActionStep {
@@ -702,19 +555,10 @@ export const COMPUTER_USE_THICK_ACTION_TOOL_NAMES = new Set([
 
 export const COMPUTER_USE_ACTION_TOOL_NAMES = new Set([
   ...COMPUTER_USE_THICK_ACTION_TOOL_NAMES,
-  "open_app",
-  "click_element",
-  "set_element_value",
-  "key_press",
-  "type_text",
 ]);
 
-export const COMPUTER_USE_DEBUG_TOOL_NAMES = new Set([
-  "run_actions",
-  "click",
-  "scroll",
-  "screenshot",
-]);
+// Raw GUI tools were retired from the agent surface; no extra debug-only tools remain.
+export const COMPUTER_USE_DEBUG_TOOL_NAMES = new Set<string>();
 
 // ---------------------------------------------------------------------------
 // Middleware
@@ -722,36 +566,28 @@ export const COMPUTER_USE_DEBUG_TOOL_NAMES = new Set([
 
 const COMPUTER_USE_TOOLS = [
   observeFrontmostUiTool,
+  screenshotTool,
+  uiTreeTool,
   openAppAndObserveTool,
   clickElementAndWaitTool,
   setValueAndVerifyTool,
   pressShortcutAndVerifyTool,
-  typeTextTool,
-  uiTreeTool,
-  openAppTool,
-  clickElementTool,
-  setElementValueTool,
-  keyPressTool,
-] as const;
-
-const COMPUTER_USE_DEBUG_TOOLS = [
-  screenshotTool,
-  clickTool,
-  scrollTool,
   runActionsTool,
 ] as const;
+
+const COMPUTER_USE_DEBUG_TOOLS = [] as const;
 
 const COMPUTER_USE_SYSTEM_PROMPT = `你有 macOS 桌面操控能力。
 
 默认工作方式是短回路：
 1. 先观察（observe_frontmost_ui 或 open_app_and_observe）
-2. 再做一个动作（click_element_and_wait / set_value_and_verify / press_shortcut_and_verify / type_text）
+2. 再做一个动作（click_element_and_wait / set_value_and_verify / press_shortcut_and_verify）
 3. 立刻验证，再决定下一步
 
 规则：
 - 不要规划很长的 GUI 动作链。
 - 不要自己思考 sleep 500ms 之类的时序细节。
-- 不要用坐标点击，除非调试场景确实需要。
+- 不要自己发明原始坐标点击、原始键盘输入之类的低层动作。
 - NEVER 用 execute 做 GUI 操作。`;
 
 export const COMPUTER_USE_SYSTEM_PROMPT_FRAGMENT = COMPUTER_USE_SYSTEM_PROMPT;
